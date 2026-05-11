@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import { COLORS } from '../constants';
 import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
+import { navigationRef } from '../../App';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -28,7 +29,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {token ? (
           <Stack.Screen name="App" component={AppNavigator} />
