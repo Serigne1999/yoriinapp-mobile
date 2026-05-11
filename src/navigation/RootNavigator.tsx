@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import { COLORS } from '../constants';
 import AuthNavigator from './AuthNavigator';
 import AppNavigator from './AppNavigator';
-import { navigationRef } from '../../App';
+import { navigationRef } from './navigationRef';
 
 export type RootStackParamList = {
   Auth: undefined;

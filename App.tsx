@@ -1,11 +1,9 @@
 import 'react-native-gesture-handler';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { NavigationContainerRef, createNavigationContainerRef } from '@react-navigation/native';
 import RootNavigator from './src/navigation/RootNavigator';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
 import { useAuthStore } from './src/store/authStore';
-
-export const navigationRef = createNavigationContainerRef();
+import { navigationRef } from './src/navigation/navigationRef';
 
 function AppContent() {
   const { token } = useAuthStore();
