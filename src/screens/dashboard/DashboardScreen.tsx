@@ -10,7 +10,7 @@ import { getDashboard, getRevenue } from '../../api/dashboard';
 import { DashboardData, RevenueReport } from '../../types';
 import { COLORS, SPACING } from '../../constants';
 
-type Period = 'week' | 'month' | 'year';
+type Period = 'week' | 'month';
 
 function StatCard({ label, value, sub, icon, color }: {
   label: string; value: string; sub?: string;
@@ -127,14 +127,14 @@ export default function DashboardScreen() {
             <View style={styles.chartHeader}>
               <Text style={styles.sectionTitle}>Chiffre d'affaires</Text>
               <View style={styles.periodRow}>
-                {(['week', 'month', 'year'] as Period[]).map(p => (
+                {(['week', 'month'] as Period[]).map(p => (
                   <TouchableOpacity
                     key={p}
                     style={[styles.periodBtn, period === p && styles.periodBtnActive]}
                     onPress={() => setPeriod(p)}
                   >
                     <Text style={[styles.periodText, period === p && styles.periodTextActive]}>
-                      {p === 'week' ? 'Sem.' : p === 'month' ? 'Mois' : 'Année'}
+                      {p === 'week' ? 'Semaine' : 'Mois'}
                     </Text>
                   </TouchableOpacity>
                 ))}

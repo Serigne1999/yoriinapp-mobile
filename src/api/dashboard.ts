@@ -7,7 +7,7 @@ export const getDashboard = async (locationId?: number) => {
   return data.data;
 };
 
-export const getRevenue = async (period: 'week' | 'month' | 'year', locationId?: number) => {
+export const getRevenue = async (period: 'week' | 'month', locationId?: number) => {
   const params: any = { period };
   if (locationId) params.location_id = locationId;
   const { data } = await client.get<ApiResponse<RevenueReport>>('/reports/revenue', { params });

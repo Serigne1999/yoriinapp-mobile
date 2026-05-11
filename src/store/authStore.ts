@@ -28,6 +28,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       if (!res.success) throw new Error(res.message || 'Échec de connexion');
       const { token, user, business, locations } = res.data;
       const firstLocation = locations?.[0]?.id ?? null;
+      await SecureStore.setItemAsync('auth_token', token);
       set({
         token,
         user,
@@ -41,7 +42,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   logout: async () => {
-    await apiLogout();
+    await apiLogout().catch(() => {});
+    await SecureStore.deleteItemAsync('auth_token');
     set({ token: null, user: null, business: null, locations: [], currentLocationId: null });
   },
 
