@@ -15,22 +15,29 @@ const RANGES = ["Aujourd'hui", 'Hier', 'Semaine', 'Mois', 'Personnalisé'] as co
 
 const FILTERS = [
   { id: 'all',    label: 'Toutes' },
-  { id: 'final',  label: 'Payées',      dot: C.success },
-  { id: 'credit', label: 'Crédit',      dot: C.warning },
+  { id: 'paid',   label: 'Payées',      dot: C.success },
+  { id: 'due',    label: 'Crédit',      dot: C.warning },
   { id: 'refund', label: 'Remboursées', dot: C.danger },
 ] as const;
 
+// Méthodes de paiement connues (retournées par l'API /sales/{id})
 const PAY_INFO: Record<string, { label: string; fg: string; bg: string }> = {
-  cash:   { label: 'Espèces',      fg: '#374151', bg: '#F3F4F6' },
-  wave:   { label: 'Wave',         fg: '#1E40AF', bg: '#DBEAFE' },
-  orange: { label: 'Orange Money', fg: '#B45309', bg: '#FEF3C7' },
-  credit: { label: 'Crédit',       fg: '#9333EA', bg: '#F3E8FF' },
+  cash:         { label: 'Espèces',      fg: '#374151', bg: '#F3F4F6' },
+  wave:         { label: 'Wave',         fg: '#1E40AF', bg: '#DBEAFE' },
+  orange_money: { label: 'Orange Money', fg: '#B45309', bg: '#FEF3C7' },
+  card:         { label: 'Carte',        fg: '#9333EA', bg: '#F3E8FF' },
+  credit:       { label: 'Crédit',       fg: '#9333EA', bg: '#F3E8FF' },
 };
 
+// UltimatePOS payment_status values: paid | due | partial | refund
 const STATUS_INFO: Record<string, { icon: any; fg: string; bg: string; label: string }> = {
-  final:  { icon: 'checkmark',      fg: '#15803D', bg: '#DCFCE7', label: 'Payé' },
-  credit: { icon: 'alert-circle',   fg: '#B45309', bg: '#FEF3C7', label: 'À recouvrer' },
-  refund: { icon: 'close',          fg: '#B91C1C', bg: '#FEE2E2', label: 'Remboursé' },
+  paid:    { icon: 'checkmark',    fg: '#15803D', bg: '#DCFCE7', label: 'Payé' },
+  partial: { icon: 'alert-circle', fg: '#B45309', bg: '#FEF3C7', label: 'Partiel' },
+  due:     { icon: 'alert-circle', fg: '#B45309', bg: '#FEF3C7', label: 'À recouvrer' },
+  refund:  { icon: 'close',        fg: '#B91C1C', bg: '#FEE2E2', label: 'Remboursé' },
+  // aliases legacy
+  final:   { icon: 'checkmark',    fg: '#15803D', bg: '#DCFCE7', label: 'Payé' },
+  credit:  { icon: 'alert-circle', fg: '#B45309', bg: '#FEF3C7', label: 'À recouvrer' },
 };
 
 function saleTime(dateStr: string) {
@@ -51,8 +58,8 @@ export default function SalesScreen() {
     try {
       const params: any = { page: 1 };
       if (currentLocationId) params.location_id = currentLocationId;
-      const { data } = await client.get<ApiResponse<{ data: Sale[] }>>('/sales', { params });
-      setSales(data.data.data ?? []);
+      const { data } = await client.get<ApiResponse<{ sales: Sale[]; total: number }>>('/sales', { params });
+      setSales(data.data.sales ?? []);
     } catch {}
     finally { setLoading(false); setRefreshing(false); }
   }, [currentLocationId]);
@@ -181,7 +188,7 @@ export default function SalesScreen() {
                       <Text style={[s.payText, { color: pay.fg }]}>{pay.label}</Text>
                     </View>
                     <Text style={s.metaText}>
-                      {saleTime(item.created_at)}
+                      {saleTime(item.date)}
                     </Text>
                   </View>
                 </View>
