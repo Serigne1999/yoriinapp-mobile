@@ -134,7 +134,7 @@ export default function DashboardScreen() {
               <View style={s.chartHeader}>
                 <View>
                   <Text style={s.chartLabel}>Chiffre d'affaires</Text>
-                  <Text style={s.chartTotal}>{fcfa(chartTotal * 1000)}</Text>
+                  <Text style={s.chartTotal}>{fcfa(chartTotal)}</Text>
                 </View>
                 <View style={s.periodWrap}>
                   {(['week','month'] as Period[]).map(p => (
