@@ -1,310 +1,391 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Alert, Modal,
-  ScrollView, Linking,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  RefreshControl, ActivityIndicator, Alert, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import { getWhatsAppOrders, approveOrder, rejectOrder } from '../../api/whatsapp';
 import { WhatsAppOrder } from '../../types';
-import { COLORS, SPACING } from '../../constants';
+import { C, fcfa } from '../../constants';
 
-const STATUS_LABELS: Record<string, string> = {
-  pending_verification: 'En attente',
-  approved:  'Approuvé',
-  rejected:  'Rejeté',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  pending_verification: COLORS.warning,
-  approved:  COLORS.success,
-  rejected:  COLORS.danger,
-};
-
-function fmt(n: number) { return new Intl.NumberFormat('fr-FR').format(n); }
-
-type FilterStatus = 'all' | 'pending_verification' | 'approved' | 'rejected';
-
-function OrderCard({ order, onPress }: { order: WhatsAppOrder; onPress: () => void }) {
-  const color = STATUS_COLORS[order.status] ?? COLORS.gray400;
-  return (
-    <TouchableOpacity style={styles.orderCard} onPress={onPress} activeOpacity={0.8}>
-      <View style={styles.orderHeader}>
-        <View>
-          <Text style={styles.customerName}>{order.customer_name}</Text>
-          <Text style={styles.orderDate}>{new Date(order.created_at).toLocaleString('fr-FR')}</Text>
-        </View>
-        <View style={[styles.badge, { backgroundColor: color + '20' }]}>
-          <Text style={[styles.badgeText, { color }]}>{STATUS_LABELS[order.status]}</Text>
-        </View>
-      </View>
-      <Text style={styles.productName} numberOfLines={1}>{order.product_name}</Text>
-      <View style={styles.orderFooter}>
-        <Text style={styles.orderPhone}>{order.customer_phone}</Text>
-        <Text style={styles.orderTotal}>{fmt(order.total)} FCFA</Text>
-      </View>
-    </TouchableOpacity>
-  );
+const AVATAR_PALETTE = ['#FDE68A','#FBCFE8','#BFDBFE','#C7F0D9','#FECACA','#DDD6FE','#FED7AA','#A7F3D0'];
+function avatarBg(name: string) {
+  return AVATAR_PALETTE[((name.charCodeAt(0) || 0) + (name.charCodeAt(1) || 0)) % AVATAR_PALETTE.length];
+}
+function initials(name: string) {
+  return name.split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase();
 }
 
-function DetailModal({ order, onClose, onApprove, onReject, acting }: {
+const TABS = [
+  { id: 'pending_verification', label: 'À valider' },
+  { id: 'approved',             label: 'En préparation' },
+  { id: 'ready',                label: 'Prêtes' },
+] as const;
+type TabId = typeof TABS[number]['id'];
+
+// ── Order card ─────────────────────────────────────────────
+function OrderCard({ order, onApprove, onReject, acting }: {
   order: WhatsAppOrder;
-  onClose: () => void;
   onApprove: () => void;
   onReject: () => void;
   acting: boolean;
 }) {
-  const color = STATUS_COLORS[order.status] ?? COLORS.gray400;
+  const [expanded, setExpanded] = useState(false);
   const isPending = order.status === 'pending_verification';
 
+  const items = order.items ?? [{
+    name: order.product_name,
+    qty: order.qty,
+    price: order.unit_price,
+  }];
+
+  const timeAgo = (() => {
+    const diff = Date.now() - new Date(order.created_at).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1)  return 'à l\'instant';
+    if (mins < 60) return `il y a ${mins} min`;
+    return `il y a ${Math.floor(mins / 60)}h`;
+  })();
+
   return (
-    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Commande WhatsApp</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color={COLORS.text} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={[styles.statusBanner, { backgroundColor: color + '15' }]}>
-              <Text style={[styles.statusText, { color }]}>{STATUS_LABELS[order.status]}</Text>
-            </View>
-
-            {[
-              ['Client', order.customer_name],
-              ['Téléphone', order.customer_phone],
-              ['Produit', order.product_name],
-              ['Quantité', String(order.qty)],
-              ['Prix unitaire', fmt(order.unit_price) + ' FCFA'],
-              ['Total', fmt(order.total) + ' FCFA'],
-              ['Adresse', order.address],
-              ['Paiement', order.payment_method],
-            ].map(([label, value]) => (
-              <View key={label} style={styles.detailRow}>
-                <Text style={styles.detailLabel}>{label}</Text>
-                <Text style={styles.detailValue}>{value}</Text>
-              </View>
-            ))}
-
-            <TouchableOpacity
-              style={styles.callBtn}
-              onPress={() => Linking.openURL(`tel:${order.customer_phone}`)}
-            >
-              <Ionicons name="call" size={16} color={COLORS.primary} />
-              <Text style={styles.callText}>Appeler le client</Text>
-            </TouchableOpacity>
-
+    <View style={[oc.card, isPending && oc.cardUrgent]}>
+      {/* Client header */}
+      <View style={oc.topRow}>
+        <View style={[oc.avatar, { backgroundColor: avatarBg(order.customer_name) }]}>
+          <Text style={oc.avatarText}>{initials(order.customer_name)}</Text>
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={oc.clientName} numberOfLines={1}>{order.customer_name}</Text>
             {isPending && (
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  style={[styles.actionBtn, styles.rejectBtn, acting && styles.btnDisabled]}
-                  onPress={onReject}
-                  disabled={acting}
-                >
-                  {acting ? <ActivityIndicator color="#fff" size="small" /> : (
-                    <>
-                      <Ionicons name="close-circle" size={18} color="#fff" />
-                      <Text style={styles.actionText}>Rejeter</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionBtn, styles.approveBtn, acting && styles.btnDisabled]}
-                  onPress={onApprove}
-                  disabled={acting}
-                >
-                  {acting ? <ActivityIndicator color="#fff" size="small" /> : (
-                    <>
-                      <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                      <Text style={styles.actionText}>Approuver</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+              <View style={oc.urgentBadge}>
+                <Text style={oc.urgentText}>URGENT</Text>
               </View>
             )}
-          </ScrollView>
+          </View>
+          <Text style={oc.clientMeta}>{order.customer_phone} · {timeAgo}</Text>
         </View>
+        <TouchableOpacity
+          style={oc.callBtn}
+          onPress={() => Linking.openURL(`tel:${order.customer_phone}`)}
+        >
+          <Ionicons name="call-outline" size={18} color={C.secondary} />
+        </TouchableOpacity>
       </View>
-    </Modal>
+
+      {/* Items list */}
+      <View style={oc.itemsBox}>
+        {(expanded ? items : items.slice(0, 2)).map((it: any, i: number) => (
+          <View key={i} style={oc.itemRow}>
+            <Text style={oc.itemQty}>×{it.qty ?? it.quantity}</Text>
+            <Text style={oc.itemName} numberOfLines={1}>{it.name ?? it.product_name}</Text>
+            <Text style={oc.itemPrice}>{fcfa((it.qty ?? it.quantity) * (it.price ?? it.unit_price))}</Text>
+          </View>
+        ))}
+        {items.length > 2 && !expanded && (
+          <TouchableOpacity onPress={() => setExpanded(true)}>
+            <Text style={oc.moreText}>+ {items.length - 2} autres articles</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Note */}
+      {order.address ? (
+        <View style={oc.note}>
+          <Ionicons name="chatbubble-outline" size={14} color="#B45309" style={{ marginTop: 2, flexShrink: 0 }} />
+          <Text style={oc.noteText}>{order.address}</Text>
+        </View>
+      ) : null}
+
+      {/* Footer */}
+      <View style={oc.footer}>
+        <View>
+          <Text style={oc.footerTotalLabel}>Total</Text>
+          <Text style={oc.footerTotal}>{fcfa(order.total)}</Text>
+        </View>
+        {isPending && (
+          <View style={oc.actions}>
+            <TouchableOpacity
+              style={oc.rejectBtn}
+              onPress={onReject}
+              disabled={acting}
+              activeOpacity={0.8}
+            >
+              <Text style={oc.rejectText}>Rejeter</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[oc.validateBtn, acting && { opacity: 0.6 }]}
+              onPress={onApprove}
+              disabled={acting}
+              activeOpacity={0.85}
+            >
+              {acting ? <ActivityIndicator color="#fff" size="small" /> : (
+                <>
+                  <Ionicons name="checkmark" size={16} color="#fff" />
+                  <Text style={oc.validateText}>Valider</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </View>
   );
 }
 
+// ── Main screen ────────────────────────────────────────────
 export default function WhatsAppScreen() {
   const { currentLocationId } = useAuthStore();
   const [orders, setOrders]       = useState<WhatsAppOrder[]>([]);
   const [counts, setCounts]       = useState<Record<string, number>>({});
-  const [filter, setFilter]       = useState<FilterStatus>('pending_verification');
-  const [page, setPage]           = useState(1);
-  const [hasMore, setHasMore]     = useState(false);
+  const [tab, setTab]             = useState<TabId>('pending_verification');
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selected, setSelected]   = useState<WhatsAppOrder | null>(null);
-  const [acting, setActing]       = useState(false);
+  const [actingId, setActingId]   = useState<number | null>(null);
 
-  const load = useCallback(async (reset = false) => {
-    const p = reset ? 1 : page;
+  const load = useCallback(async () => {
     try {
       const res = await getWhatsAppOrders({
         location_id: currentLocationId ?? undefined,
-        status: filter === 'all' ? undefined : filter,
-        page: p,
+        status: tab === 'ready' ? undefined : tab,
+        page: 1,
       });
       if (!res) return;
-      setOrders(prev => reset ? res.orders : [...prev, ...res.orders]);
-      setHasMore(res.has_more);
+      setOrders(res.orders);
       setCounts(res.counts ?? {});
-      if (reset) setPage(1);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [currentLocationId, filter, page]);
+    } catch {}
+    finally { setLoading(false); setRefreshing(false); }
+  }, [currentLocationId, tab]);
 
-  useEffect(() => { setLoading(true); load(true); }, [filter, currentLocationId]);
+  useEffect(() => { setLoading(true); load(); }, [tab, currentLocationId]);
 
-  const onRefresh = () => { setRefreshing(true); load(true); };
-  const loadMore  = () => { if (hasMore) { setPage(p => p + 1); load(); } };
-
-  const handleApprove = async () => {
-    if (!selected) return;
-    setActing(true);
+  const handleApprove = async (order: WhatsAppOrder) => {
+    setActingId(order.id);
     try {
-      await approveOrder(selected.id);
-      setSelected(null);
-      load(true);
+      await approveOrder(order.id);
+      load();
     } catch {
       Alert.alert('Erreur', 'Impossible d\'approuver cette commande.');
-    } finally {
-      setActing(false);
-    }
+    } finally { setActingId(null); }
   };
 
-  const handleReject = async () => {
-    if (!selected) return;
+  const handleReject = (order: WhatsAppOrder) => {
     Alert.alert('Rejeter', 'Confirmer le rejet de cette commande ?', [
       { text: 'Annuler', style: 'cancel' },
       {
         text: 'Rejeter', style: 'destructive',
         onPress: async () => {
-          setActing(true);
+          setActingId(order.id);
           try {
-            await rejectOrder(selected.id);
-            setSelected(null);
-            load(true);
+            await rejectOrder(order.id);
+            load();
           } catch {
             Alert.alert('Erreur', 'Impossible de rejeter.');
-          } finally {
-            setActing(false);
-          }
-        }
-      }
+          } finally { setActingId(null); }
+        },
+      },
     ]);
   };
 
-  const FILTERS: { key: FilterStatus; label: string }[] = [
-    { key: 'pending_verification', label: `En attente ${counts.pending_verification ? `(${counts.pending_verification})` : ''}` },
-    { key: 'approved',  label: 'Approuvés' },
-    { key: 'rejected',  label: 'Rejetés' },
-    { key: 'all',       label: 'Tous' },
-  ];
+  const totalOrders = Object.values(counts).reduce((a, b) => a + b, 0);
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.topBar}>
-        <Text style={styles.screenTitle}>Commandes WhatsApp</Text>
+    <SafeAreaView style={s.safe} edges={['top']}>
+      {/* Header */}
+      <View style={s.headerWrap}>
+        <View style={s.headerTop}>
+          <View style={s.waIcon}>
+            <Ionicons name="logo-whatsapp" size={22} color={C.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.headerTitle}>Commandes WhatsApp</Text>
+            <Text style={s.headerSub}>
+              <Text style={s.botDot}>● </Text>
+              <Text style={s.botStatus}>Bot connecté</Text>
+              {'  ·  '}{orders.length} nouvelles · {totalOrders} aujourd'hui
+            </Text>
+          </View>
+          <TouchableOpacity style={s.moreBtn}>
+            <Ionicons name="ellipsis-vertical" size={20} color={C.text2} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Underline tabs */}
+        <View style={s.tabRow}>
+          {TABS.map(t => {
+            const on = tab === t.id;
+            const cnt = counts[t.id] ?? 0;
+            return (
+              <TouchableOpacity
+                key={t.id}
+                style={[s.tab, on && s.tabOn]}
+                onPress={() => setTab(t.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={[s.tabText, on && s.tabTextOn]}>{t.label}</Text>
+                <View style={[s.tabCount, on && s.tabCountOn]}>
+                  <Text style={[s.tabCountText, on && { color: '#fff' }]}>
+                    {cnt || orders.length}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar} contentContainerStyle={styles.filterContent}>
-        {FILTERS.map(f => (
-          <TouchableOpacity
-            key={f.key}
-            style={[styles.filterBtn, filter === f.key && styles.filterBtnActive]}
-            onPress={() => setFilter(f.key)}
-          >
-            <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
+      {/* Orders */}
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+        <View style={s.center}>
+          <ActivityIndicator size="large" color={C.primary} />
         </View>
       ) : (
-        <FlatList
-          data={orders}
-          keyExtractor={item => String(item.id)}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => <OrderCard order={item} onPress={() => setSelected(item)} />}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.3}
-          ListEmptyComponent={<Text style={styles.emptyText}>Aucune commande dans cette catégorie</Text>}
-        />
-      )}
-
-      {selected && (
-        <DetailModal
-          order={selected}
-          onClose={() => setSelected(null)}
-          onApprove={handleApprove}
-          onReject={handleReject}
-          acting={acting}
-        />
+        <ScrollView
+          style={{ flex: 1, backgroundColor: C.bg }}
+          contentContainerStyle={s.list}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); load(); }}
+              tintColor={C.primary} colors={[C.primary]}
+            />
+          }
+        >
+          {orders.length === 0 ? (
+            <Text style={s.empty}>Aucune commande dans cette catégorie</Text>
+          ) : (
+            orders.map(order => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                onApprove={() => handleApprove(order)}
+                onReject={() => handleReject(order)}
+                acting={actingId === order.id}
+              />
+            ))
+          )}
+        </ScrollView>
       )}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe:      { flex: 1, backgroundColor: COLORS.background },
-  topBar:    { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: COLORS.gray200 },
-  screenTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
-  center:    { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  filterBar: { backgroundColor: '#fff', maxHeight: 52, borderBottomWidth: 1, borderBottomColor: COLORS.gray200 },
-  filterContent: { paddingHorizontal: SPACING.md, paddingVertical: 10, gap: 8 },
-  filterBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: COLORS.gray100 },
-  filterBtnActive: { backgroundColor: COLORS.primary },
-  filterText: { fontSize: 13, color: COLORS.textLight, fontWeight: '500' },
-  filterTextActive: { color: '#fff', fontWeight: '600' },
-  list:      { padding: SPACING.md, gap: SPACING.sm },
-  orderCard: {
-    backgroundColor: '#fff', borderRadius: 14, padding: SPACING.md,
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#fff' },
+  headerWrap: { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: C.border },
+  headerTop: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10,
   },
-  orderHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
-  customerName: { fontSize: 15, fontWeight: '700', color: COLORS.text },
-  orderDate:    { fontSize: 11, color: COLORS.textLight, marginTop: 2 },
-  badge:        { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
-  badgeText:    { fontSize: 11, fontWeight: '700' },
-  productName:  { fontSize: 13, color: COLORS.gray600, marginBottom: 8 },
-  orderFooter:  { flexDirection: 'row', justifyContent: 'space-between' },
-  orderPhone:   { fontSize: 12, color: COLORS.textLight },
-  orderTotal:   { fontSize: 14, fontWeight: '700', color: COLORS.text },
-  emptyText:    { textAlign: 'center', color: COLORS.textLight, marginTop: 60 },
-  // Modal
-  overlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet:     { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%', padding: SPACING.lg },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
-  sheetTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
-  statusBanner: { borderRadius: 10, padding: 12, marginBottom: SPACING.md, alignItems: 'center' },
-  statusText: { fontSize: 14, fontWeight: '700' },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.gray100 },
-  detailLabel: { fontSize: 13, color: COLORS.textLight, flex: 1 },
-  detailValue: { fontSize: 13, fontWeight: '600', color: COLORS.text, flex: 2, textAlign: 'right' },
-  callBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: SPACING.md, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: COLORS.primary },
-  callText: { color: COLORS.primary, fontWeight: '600' },
-  actionRow: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.lg, marginBottom: SPACING.xl },
-  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 12 },
-  approveBtn: { backgroundColor: COLORS.success },
-  rejectBtn:  { backgroundColor: COLORS.danger },
-  actionText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  btnDisabled:{ opacity: 0.6 },
+  waIcon: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: C.primarySoft,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: C.text, letterSpacing: -0.3 },
+  headerSub:   { fontSize: 12, color: C.muted, marginTop: 1 },
+  botDot:      { color: C.success, fontWeight: '700' },
+  botStatus:   { color: C.success, fontWeight: '600' },
+  moreBtn: {
+    width: 38, height: 38, borderRadius: 10, backgroundColor: C.bg,
+    borderWidth: 1, borderColor: C.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  tabRow: { flexDirection: 'row', paddingHorizontal: 0 },
+  tab: {
+    flex: 1, paddingVertical: 10, paddingBottom: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderBottomWidth: 2.5, borderBottomColor: 'transparent',
+  },
+  tabOn:      { borderBottomColor: C.primary },
+  tabText:    { fontSize: 13, fontWeight: '600', color: C.muted },
+  tabTextOn:  { color: C.text, fontWeight: '700' },
+  tabCount: {
+    minWidth: 19, height: 19, paddingHorizontal: 5, borderRadius: 10,
+    backgroundColor: C.borderL,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  tabCountOn:   { backgroundColor: C.primary },
+  tabCountText: { fontSize: 10.5, fontWeight: '700', color: C.muted },
+
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  list:   { padding: 12, gap: 12, paddingBottom: 100 },
+  empty:  { textAlign: 'center', color: C.muted, marginTop: 60 },
+});
+
+const oc = StyleSheet.create({
+  card: {
+    backgroundColor: '#fff', borderRadius: 16,
+    borderWidth: 1, borderColor: C.border, overflow: 'hidden',
+  },
+  cardUrgent: {
+    borderWidth: 1.5, borderColor: C.primary,
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12, shadowRadius: 14, elevation: 4,
+  },
+  topRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 12, paddingBottom: 10,
+  },
+  avatar: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  avatarText: { fontSize: 15, fontWeight: '700', color: '#3B3320' },
+  clientName: { fontSize: 14.5, fontWeight: '700', color: C.text },
+  clientMeta: { fontSize: 12, color: C.muted, marginTop: 1, fontVariant: ['tabular-nums'] },
+  urgentBadge: {
+    backgroundColor: '#FEE2E2', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4,
+  },
+  urgentText: { fontSize: 9.5, fontWeight: '700', color: '#B91C1C', letterSpacing: 0.3 },
+  callBtn: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: C.primarySoft,
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  itemsBox: {
+    marginHorizontal: 14, backgroundColor: C.bg,
+    borderRadius: 10, padding: 10, marginBottom: 0,
+  },
+  itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+  itemQty: { fontSize: 13, fontWeight: '600', color: C.muted, width: 28 },
+  itemName: { flex: 1, fontSize: 13, color: C.text2 },
+  itemPrice: { fontSize: 13, fontWeight: '600', color: C.text },
+  moreText: { fontSize: 12, color: C.secondary, fontWeight: '600', marginTop: 4 },
+
+  note: {
+    flexDirection: 'row', gap: 8, alignItems: 'flex-start',
+    marginHorizontal: 14, marginTop: 8,
+    backgroundColor: '#FFFBEB', borderRadius: 9, padding: 8,
+    borderWidth: 1, borderColor: '#FDE68A',
+  },
+  noteText: { fontSize: 12.5, color: '#78350F', lineHeight: 18, flex: 1 },
+
+  footer: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    padding: 12, paddingTop: 12,
+    borderTopWidth: 1, borderTopColor: C.borderL, marginTop: 12,
+  },
+  footerTotalLabel: { fontSize: 11, color: C.muted, fontWeight: '500' },
+  footerTotal:      { fontSize: 17, fontWeight: '800', color: C.text, letterSpacing: -0.4, lineHeight: 20 },
+  actions:  { flex: 1, flexDirection: 'row', gap: 8, justifyContent: 'flex-end' },
+  rejectBtn: {
+    height: 40, paddingHorizontal: 14, borderRadius: 10,
+    borderWidth: 1.5, borderColor: C.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  rejectText: { fontSize: 13, fontWeight: '700', color: C.danger },
+  validateBtn: {
+    height: 40, paddingHorizontal: 16, borderRadius: 10,
+    backgroundColor: C.primary,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+  },
+  validateText: { fontSize: 13, fontWeight: '700', color: '#fff' },
 });

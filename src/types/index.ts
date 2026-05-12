@@ -75,9 +75,16 @@ export interface Sale {
   total:          number;
   payment_status: string;
   date:           string;
+  created_at:     string;
 }
 
 // ── Commandes WhatsApp ───────────────────────────────────────────────────────
+export interface WhatsAppOrderItem {
+  name:     string;
+  qty:      number;
+  price:    number;
+}
+
 export interface WhatsAppOrder {
   id:             number;
   customer_name:  string;
@@ -88,8 +95,9 @@ export interface WhatsAppOrder {
   total:          number;
   address:        string;
   payment_method: string;
-  status:         'pending_verification' | 'approved' | 'rejected';
+  status:         'pending_verification' | 'approved' | 'rejected' | 'ready';
   created_at:     string;
+  items?:         WhatsAppOrderItem[];
 }
 
 // ── API Response ─────────────────────────────────────────────────────────────

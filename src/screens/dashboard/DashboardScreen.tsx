@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import { getDashboard, getRevenue } from '../../api/dashboard';
 import { DashboardData, RevenueReport } from '../../types';
@@ -24,6 +25,7 @@ function initials(name: string) {
 const TOP_COLORS = ['#FDE68A','#FECACA','#FBCFE8','#BFDBFE','#C7F0D9'];
 
 export default function DashboardScreen() {
+  const navigation = useNavigation<any>();
   const { business, user, currentLocationId } = useAuthStore();
   const [dash, setDash]       = useState<DashboardData | null>(null);
   const [revenue, setRevenue] = useState<RevenueReport | null>(null);
@@ -49,10 +51,10 @@ export default function DashboardScreen() {
   useEffect(() => { load(); }, [load]);
 
   const kpis = dash ? [
-    { id: 'ca',    label: "Chiffre d'affaires", value: fcfa(dash.sales_today.revenue), sub: "Aujourd'hui", delta: `${dash.sales_today.count} ventes`, up: true,  tint: C.primarySoft, fg: C.secondary, icon: 'cash-outline' as const },
-    { id: 'dep',   label: 'Dépenses',           value: fcfa(dash.expenses_today.total), sub: "Aujourd'hui", delta: `${dash.expenses_today.count} opérations`, up: false, tint: C.warningSoft, fg: '#B45309', icon: 'card-outline' as const },
-    { id: 'ben',   label: 'Bénéfice net',        value: fcfa(dash.sales_today.revenue - dash.expenses_today.total), sub: 'Ventes − Dépenses', delta: '', up: true, tint: '#DCFCE7', fg: C.success, icon: 'trending-up-outline' as const },
-    { id: 'stock', label: 'Stock faible',        value: String(dash.low_stock_count), sub: 'produits alerte', delta: dash.low_stock_count > 0 ? 'alerte' : 'OK', up: dash.low_stock_count === 0, tint: C.dangerSoft, fg: C.danger, icon: 'alert-circle-outline' as const },
+    { id: 'ca',    label: "Chiffre d'affaires", value: fcfa(dash.sales_today.revenue), sub: "Aujourd'hui", delta: `+${dash.sales_today.count}`, up: true,  tint: C.primarySoft, fg: C.secondary, icon: 'cash-outline' as const },
+    { id: 'ventes',label: 'Ventes',              value: String(dash.sales_today.count), sub: 'tickets',     delta: `+${dash.sales_today.count}`, up: true,  tint: C.infoSoft,    fg: C.info,      icon: 'receipt-outline' as const },
+    { id: 'dep',   label: 'Dépenses',            value: fcfa(dash.expenses_today.total), sub: "Aujourd'hui", delta: `${dash.expenses_today.count > 0 ? '+' : ''}${dash.expenses_today.count}`, up: false, tint: C.warningSoft, fg: '#B45309', icon: 'card-outline' as const },
+    { id: 'stock', label: 'Stock faible',         value: String(dash.low_stock_count), sub: 'produits',     delta: dash.low_stock_count > 0 ? 'alerte' : 'OK', up: dash.low_stock_count === 0, tint: C.dangerSoft, fg: C.danger, icon: 'alert-circle-outline' as const },
   ] : [];
 
   const chartData = revenue?.data ?? [];
@@ -198,7 +200,7 @@ export default function DashboardScreen() {
 
             {/* Quick actions */}
             <View style={s.quickRow}>
-              <QuickAction icon="bag-outline" label="Nouvelle vente" primary />
+              <QuickAction icon="bag-outline" label="Nouvelle vente" primary onPress={() => navigation.navigate('POS')} />
               <QuickAction icon="cube-outline" label="Ajouter stock" />
               <QuickAction icon="card-outline" label="Dépense" />
             </View>
@@ -242,9 +244,9 @@ export default function DashboardScreen() {
   );
 }
 
-function QuickAction({ icon, label, primary }: { icon: any; label: string; primary?: boolean }) {
+function QuickAction({ icon, label, primary, onPress }: { icon: any; label: string; primary?: boolean; onPress?: () => void }) {
   return (
-    <TouchableOpacity style={[s.quickBtn, primary && s.quickBtnPrimary]} activeOpacity={0.8}>
+    <TouchableOpacity style={[s.quickBtn, primary && s.quickBtnPrimary]} activeOpacity={0.8} onPress={onPress}>
       <Ionicons name={icon} size={22} color={primary ? '#fff' : C.secondary} />
       <Text style={[s.quickLabel, primary && { color: '#fff' }]}>{label}</Text>
     </TouchableOpacity>

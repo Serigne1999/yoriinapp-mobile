@@ -7,6 +7,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import LinearGradient from 'react-native-linear-gradient';
 import { useAuthStore } from '../../store/authStore';
 import { C } from '../../constants';
 
@@ -34,13 +35,18 @@ export default function LoginScreen() {
       <StatusBar style="light" />
 
       {/* Gradient header */}
-      <View style={s.header}>
+      <LinearGradient
+        colors={['#25D366', '#128C7E']}
+        start={{ x: 0.7, y: 0 }}
+        end={{ x: 0.3, y: 1 }}
+        style={s.header}
+      >
         <View style={s.logoBox}>
           <Text style={s.logoLetter}>Y</Text>
         </View>
         <Text style={s.logoText}>Yoriin</Text>
         <Text style={s.logoSub}>Point de vente · Sénégal</Text>
-      </View>
+      </LinearGradient>
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -150,13 +156,13 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#fff' },
 
   header: {
-    height: 260,
-    backgroundColor: C.primary,
+    height: 280,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    borderBottomLeftRadius: 48,
-    borderBottomRightRadius: 48,
+    gap: 14,
+    borderBottomLeftRadius: 80,
+    borderBottomRightRadius: 80,
+    overflow: 'hidden',
   },
   logoBox: {
     width: 72, height: 72, borderRadius: 22,
