@@ -11,7 +11,14 @@ import { ApiResponse, Sale } from '../../types';
 import { useAuthStore } from '../../store/authStore';
 import { C, fcfa } from '../../constants';
 
-const RANGES = ["Aujourd'hui", 'Hier', 'Semaine', 'Mois', 'Personnalisé'] as const;
+const RANGES = [
+  { label: "Aujourd'hui", api: 'today'     },
+  { label: 'Hier',        api: 'yesterday' },
+  { label: 'Semaine',     api: 'week'      },
+  { label: 'Mois',        api: 'month'     },
+  { label: 'Tout',        api: 'all'       },
+] as const;
+type RangeApi = typeof RANGES[number]['api'];
 
 const FILTERS = [
   { id: 'all',    label: 'Toutes' },
@@ -49,20 +56,26 @@ function saleTime(dateStr: string) {
 export default function SalesScreen() {
   const { currentLocationId } = useAuthStore();
   const [sales, setSales]     = useState<Sale[]>([]);
-  const [range, setRange]     = useState<string>("Aujourd'hui");
+  const [range, setRange]     = useState<RangeApi>('today');
   const [filter, setFilter]   = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError]     = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setError(null);
     try {
-      const params: any = { page: 1 };
+      const params: any = { page: 1, range };
       if (currentLocationId) params.location_id = currentLocationId;
       const { data } = await client.get<ApiResponse<{ sales: Sale[]; total: number }>>('/sales', { params });
       setSales(data.data.sales ?? []);
-    } catch {}
-    finally { setLoading(false); setRefreshing(false); }
-  }, [currentLocationId]);
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? e?.message ?? 'Erreur de chargement');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [currentLocationId, range]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -93,12 +106,12 @@ export default function SalesScreen() {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={s.rangeScroll}
-        keyExtractor={item => item}
-        renderItem={({ item }) => {
-          const on = range === item;
+        keyExtractor={(item: any) => item.api}
+        renderItem={({ item }: any) => {
+          const on = range === item.api;
           return (
-            <TouchableOpacity style={[s.pill, on && s.pillOn]} onPress={() => setRange(item)}>
-              <Text style={[s.pillText, on && s.pillTextOn]}>{item}</Text>
+            <TouchableOpacity style={[s.pill, on && s.pillOn]} onPress={() => { setRange(item.api); setLoading(true); }}>
+              <Text style={[s.pillText, on && s.pillTextOn]}>{item.label}</Text>
             </TouchableOpacity>
           );
         }}
@@ -142,6 +155,13 @@ export default function SalesScreen() {
           AUJOURD'HUI · {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }).toUpperCase()}
         </Text>
       </View>
+
+      {error && (
+        <View style={s.errorWrap}>
+          <Ionicons name="alert-circle-outline" size={16} color={C.danger} />
+          <Text style={s.errorText}>{error}</Text>
+        </View>
+      )}
 
       {loading ? (
         <View style={s.center}><ActivityIndicator size="large" color={C.primary} /></View>
@@ -268,6 +288,12 @@ const s = StyleSheet.create({
   sectionLabel: { fontSize: 11.5, color: C.muted, fontWeight: '700', letterSpacing: 0.6 },
 
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  errorWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 16, marginBottom: 8,
+    backgroundColor: C.dangerSoft, borderRadius: 10, padding: 10,
+  },
+  errorText: { fontSize: 13, color: C.danger, flex: 1 },
   list:   {
     marginHorizontal: 16, backgroundColor: '#fff',
     borderRadius: 14, borderWidth: 1, borderColor: C.border,
