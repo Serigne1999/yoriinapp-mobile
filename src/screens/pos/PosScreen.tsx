@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ScrollView, FlatList, ActivityIndicator, Alert,
-  Modal, Platform,
+  Modal, Platform, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -263,8 +263,16 @@ export default function PosScreen() {
                 onPress={() => handleAdd(item)}
                 activeOpacity={0.85}
               >
-                <View style={[s.prodImg, { backgroundColor: color }]}>
-                  <Text style={s.prodEmoji}>{emoji}</Text>
+                <View style={[s.prodImg, { backgroundColor: item.image ? '#F3F4F6' : color }]}>
+                  {item.image ? (
+                    <Image
+                      source={{ uri: item.image }}
+                      style={StyleSheet.absoluteFill}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={s.prodEmoji}>{emoji}</Text>
+                  )}
                   {low && (
                     <View style={s.lowBadge}>
                       <Text style={s.lowText}>STOCK {v.stock}</Text>
