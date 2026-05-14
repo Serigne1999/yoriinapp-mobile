@@ -1,4 +1,6 @@
+console.log('[boot] App.tsx début');
 import 'react-native-gesture-handler';
+console.log('[boot] gesture-handler ok');
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import RootNavigator from './src/navigation/RootNavigator';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
