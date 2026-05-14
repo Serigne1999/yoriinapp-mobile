@@ -7,7 +7,7 @@ import { C } from '../constants';
 import DashboardScreen from '../screens/dashboard/DashboardScreen';
 import WhatsAppScreen  from '../screens/whatsapp/WhatsAppScreen';
 import PosScreen       from '../screens/pos/PosScreen';
-import SalesScreen     from '../screens/sales/SalesScreen';
+import SalesNavigator  from './SalesNavigator';
 import SettingsScreen  from '../screens/settings/SettingsScreen';
 
 export type AppTabParamList = {
@@ -105,7 +105,7 @@ export default function AppNavigator() {
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Sales"     component={SalesScreen} />
+      <Tab.Screen name="Sales"     component={SalesNavigator} />
       <Tab.Screen name="POS"       component={PosScreen} />
       <Tab.Screen name="WhatsApp"  component={WhatsAppScreen} />
       <Tab.Screen name="Settings"  component={SettingsScreen} />

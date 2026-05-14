@@ -78,6 +78,35 @@ export interface Sale {
   created_at:     string;
 }
 
+export interface SaleDetailItem {
+  product:    string | null;
+  variation:  string | null;
+  quantity:   number;
+  unit_price: number;
+  discount:   number;
+  line_total: number;
+}
+
+export interface SaleDetailPayment {
+  method: string;
+  amount: number;
+}
+
+export interface SaleDetail {
+  id:               number;
+  invoice_no:       string;
+  date:             string;
+  location:         string | null;
+  customer:         { id: number; name: string; mobile: string | null } | null;
+  items:            SaleDetailItem[];
+  total_before_tax: number;
+  tax_amount:       number;
+  discount_amount:  number;
+  final_total:      number;
+  payment_status:   string;
+  payments:         SaleDetailPayment[];
+}
+
 // ── Commandes WhatsApp ───────────────────────────────────────────────────────
 export interface WhatsAppOrderItem {
   name:     string;

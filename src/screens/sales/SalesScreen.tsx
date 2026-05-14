@@ -6,10 +6,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { SalesStackParamList } from '../../navigation/SalesNavigator';
 import client from '../../api/client';
 import { ApiResponse, Sale } from '../../types';
 import { useAuthStore } from '../../store/authStore';
 import { C, fcfa } from '../../constants';
+
+type Props = NativeStackScreenProps<SalesStackParamList, 'SalesList'>;
 
 const RANGES = [
   { label: "Aujourd'hui", api: 'today'     },
@@ -53,7 +57,7 @@ function saleTime(dateStr: string) {
   } catch { return ''; }
 }
 
-export default function SalesScreen() {
+export default function SalesScreen({ navigation }: Props) {
   const { currentLocationId } = useAuthStore();
   const [sales, setSales]     = useState<Sale[]>([]);
   const [range, setRange]     = useState<RangeApi>('today');
@@ -186,10 +190,11 @@ export default function SalesScreen() {
             const si  = STATUS_INFO[item.payment_status] ?? STATUS_INFO.final;
             const isRefund = item.payment_status === 'refund';
             return (
-              <View style={[
-                s.saleRow,
-                index > 0 && s.saleRowBorder,
-              ]}>
+              <TouchableOpacity
+                style={[s.saleRow, index > 0 && s.saleRowBorder]}
+                onPress={() => navigation.navigate('SaleDetail', { saleId: item.id })}
+                activeOpacity={0.7}
+              >
                 {/* Status icon */}
                 <View style={[s.statusIcon, { backgroundColor: si.bg }]}>
                   <Ionicons name={si.icon} size={18} color={si.fg} strokeWidth={2.4} />
@@ -223,7 +228,9 @@ export default function SalesScreen() {
                   </Text>
                   <Text style={[s.statusLabel, { color: si.fg }]}>{si.label}</Text>
                 </View>
-              </View>
+
+                <Ionicons name="chevron-forward" size={16} color={C.border} />
+              </TouchableOpacity>
             );
           }}
           ListFooterComponent={
