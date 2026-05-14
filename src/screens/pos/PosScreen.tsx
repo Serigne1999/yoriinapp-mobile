@@ -261,11 +261,11 @@ export default function PosScreen() {
                 onPress={() => handleAdd(item)}
                 activeOpacity={0.85}
               >
-                <View style={[s.prodImgWrap, { backgroundColor: item.image ? '#F3F4F6' : color }]}>
+                <View style={{ backgroundColor: item.image ? '#F3F4F6' : color }}>
                   {item.image ? (
                     <Image
                       source={{ uri: item.image }}
-                      style={s.prodImgReal}
+                      style={{ width: '100%', aspectRatio: 1 }}
                       resizeMode="cover"
                     />
                   ) : (
@@ -279,7 +279,7 @@ export default function PosScreen() {
                     </View>
                   )}
                   {inCart && (
-                    <View style={s.cartBadge}>
+                    <View style={[s.cartBadge, { top: 6, right: 6 }]}>
                       <Text style={s.cartBadgeText}>{inCart.quantity}</Text>
                     </View>
                   )}
@@ -402,13 +402,6 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: C.border, overflow: 'hidden',
   },
   prodCardIn: { borderWidth: 1.5, borderColor: C.primary },
-  prodImgWrap: {
-    width: '100%', aspectRatio: 1,
-    overflow: 'hidden', position: 'relative',
-  },
-  prodImgReal: {
-    width: '100%', height: '100%',
-  },
   prodImg: {
     width: '100%', aspectRatio: 1,
     alignItems: 'center', justifyContent: 'center',
