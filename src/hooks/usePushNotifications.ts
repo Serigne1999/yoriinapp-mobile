@@ -6,14 +6,16 @@ import Constants from 'expo-constants';
 import client from '../api/client';
 
 // Push notifications non disponibles dans Expo Go depuis SDK 53
-const isExpoGo = Constants.appOwnership === 'expo';
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
 if (!isExpoGo) {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge:  true,
+      shouldShowAlert:  true,
+      shouldShowBanner: true,
+      shouldShowList:   true,
+      shouldPlaySound:  true,
+      shouldSetBadge:   true,
     }),
   });
 }
