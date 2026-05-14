@@ -1,29 +1,11 @@
-console.log('[boot] App.tsx début');
-import 'react-native-gesture-handler';
-console.log('[boot] gesture-handler ok');
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import RootNavigator from './src/navigation/RootNavigator';
-import { usePushNotifications } from './src/hooks/usePushNotifications';
-import { useAuthStore } from './src/store/authStore';
-import { navigationRef } from './src/navigation/navigationRef';
-
-function AppContent() {
-  const { token } = useAuthStore();
-
-  usePushNotifications((data) => {
-    if (!token || !navigationRef.isReady()) return;
-    if (data?.screen === 'WhatsApp') {
-      (navigationRef as any).navigate('App', { screen: 'WhatsApp' });
-    }
-  });
-
-  return <RootNavigator />;
-}
+import React from 'react';
+import { View, Text } from 'react-native';
 
 export default function App() {
+  console.log('[boot] App rendu');
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <AppContent />
-    </GestureHandlerRootView>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <Text>YoriinApp OK</Text>
+    </View>
   );
 }
