@@ -8,8 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import { useCartStore } from '../../store/cartStore';
-import { searchProducts, createSale } from '../../api/pos';
-import { Product } from '../../types';
+import { searchProducts, fetchCategories, createSale } from '../../api/pos';
+import { Product, Category } from '../../types';
 import { C, fcfa } from '../../constants';
 
 const PROD_COLORS = ['#FDE68A','#FECACA','#FBCFE8','#C7F0D9','#BFDBFE','#FED7AA','#DDD6FE','#A7F3D0','#FDE68A'];
@@ -91,20 +91,17 @@ export default function PosScreen() {
   const { currentLocationId, user } = useAuthStore();
   const { addItem, items, updateQty, count, total, clear } = useCartStore();
 
-  const [products, setProducts]   = useState<Product[]>([]);
-  const [search, setSearch]       = useState('');
-  const [catIdx, setCatIdx]       = useState(0);
-  const [loading, setLoading]     = useState(false);
+  const [products, setProducts]       = useState<Product[]>([]);
+  const [categories, setCategories]   = useState<Category[]>([]);
+  const [search, setSearch]           = useState('');
+  const [categoryId, setCategoryId]   = useState<number | null>(null);
+  const [loading, setLoading]         = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [submitting, setSubmitting]   = useState(false);
 
-  const cats = [
-    { id: 'all', label: 'Tout' },
-    { id: 'epi', label: 'Épicerie' },
-    { id: 'boi', label: 'Boissons' },
-    { id: 'hyg', label: 'Hygiène' },
-    { id: 'fra', label: 'Frais' },
-  ];
+  useEffect(() => {
+    fetchCategories().then(setCategories).catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     if (!currentLocationId) return;
@@ -112,15 +109,16 @@ export default function PosScreen() {
     try {
       const res = await searchProducts({
         location_id: currentLocationId,
-        search: search || undefined,
-        page: 1,
+        search:      search || undefined,
+        category_id: categoryId ?? undefined,
+        page:        1,
       });
       setProducts(res.products);
     } catch {}
     finally { setLoading(false); }
-  }, [currentLocationId, search]);
+  }, [currentLocationId, search, categoryId]);
 
-  useEffect(() => { load(); }, [currentLocationId]);
+  useEffect(() => { load(); }, [currentLocationId, categoryId]);
 
   const handleAdd = (product: Product) => {
     const v = product.variations[0];
@@ -219,16 +217,16 @@ export default function PosScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={s.catScroll}
         >
-          {cats.map((c, i) => {
-            const on = catIdx === i;
+          {[{ id: null, name: 'Tout' }, ...categories].map(c => {
+            const on = categoryId === c.id;
             return (
               <TouchableOpacity
-                key={c.id}
-                onPress={() => setCatIdx(i)}
+                key={String(c.id)}
+                onPress={() => { setCategoryId(c.id); setLoading(true); }}
                 style={[s.catChip, on && s.catChipOn]}
                 activeOpacity={0.8}
               >
-                <Text style={[s.catChipText, on && s.catChipTextOn]}>{c.label}</Text>
+                <Text style={[s.catChipText, on && s.catChipTextOn]}>{c.name}</Text>
               </TouchableOpacity>
             );
           })}

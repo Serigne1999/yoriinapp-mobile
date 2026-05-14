@@ -54,6 +54,11 @@ export interface Variation {
   stock:          number;
 }
 
+export interface Category {
+  id:   number;
+  name: string;
+}
+
 export interface Product {
   id:           number;
   name:         string;
@@ -61,6 +66,7 @@ export interface Product {
   type:         string;
   image:        string | null;
   enable_stock: boolean;
+  category_id:  number | null;
   unit:         string;
   tax_rate:     number;
   tax_name:     string | null;

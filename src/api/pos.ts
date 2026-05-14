@@ -1,11 +1,16 @@
 import client from './client';
-import { ApiResponse, Product } from '../types';
+import { ApiResponse, Category, Product } from '../types';
 
 interface ProductsResponse {
   products: Product[];
   total:    number;
   has_more: boolean;
 }
+
+export const fetchCategories = async (): Promise<Category[]> => {
+  const { data } = await client.get<ApiResponse<{ categories: Category[] }>>('/categories');
+  return data.data.categories ?? [];
+};
 
 interface SaleResponse {
   id:         number;
@@ -14,9 +19,10 @@ interface SaleResponse {
 }
 
 export const searchProducts = async (params: {
-  location_id: number;
-  search?:     string;
-  page?:       number;
+  location_id:  number;
+  search?:      string;
+  category_id?: number;
+  page?:        number;
 }) => {
   const { data } = await client.get<ApiResponse<ProductsResponse>>('/products', { params });
   return data.data;
