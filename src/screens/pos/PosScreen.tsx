@@ -259,13 +259,14 @@ function BarcodeScannerModal({ visible, onScanned, onClose }: {
           </View>
           <Text style={sc.hint}>Pointez vers un code-barres</Text>
         </View>
-        {/* Bouton fermer */}
-        <SafeAreaView style={sc.closeWrap} edges={['top']}>
-          <TouchableOpacity style={sc.closeBtn} onPress={onClose}>
-            <Ionicons name="close" size={26} color="#fff" />
-          </TouchableOpacity>
-        </SafeAreaView>
       </View>
+      {/* Bouton fermer — hors du container camera pour éviter que CameraView capture les touches */}
+      <SafeAreaView style={sc.closeWrap} edges={['top']} pointerEvents="box-none">
+        <TouchableOpacity style={sc.closeBtn} onPress={onClose} activeOpacity={0.7}
+          hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
+          <Ionicons name="close" size={28} color="#fff" />
+        </TouchableOpacity>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -1160,9 +1161,9 @@ const sc = StyleSheet.create({
     marginTop: 20, color: '#fff', fontSize: 15, fontWeight: '600',
     textShadowColor: 'rgba(0,0,0,0.9)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },
-  closeWrap: { position: 'absolute', top: 0, left: 0, right: 0 },
+  closeWrap: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 999, elevation: 999 },
   closeBtn:  {
-    margin: 16, width: 44, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center',
+    margin: 16, width: 52, height: 52, borderRadius: 26,
+    backgroundColor: 'rgba(0,0,0,0.65)', alignItems: 'center', justifyContent: 'center',
   },
 });
