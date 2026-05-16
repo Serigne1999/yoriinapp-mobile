@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ScrollView, FlatList, ActivityIndicator, Alert,
-  Modal, Platform, Image, KeyboardAvoidingView,
+  Modal, Platform, Image, KeyboardAvoidingView, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -209,11 +209,17 @@ function BarcodeScannerModal({ visible, onScanned, onClose }: {
     );
   }
 
+  const { width } = Dimensions.get('window');
+  const frameW = width * 0.85;
+  const frameH = 200;
+  const corner = 28;
+  const cw = 3;
+
   return (
-    <Modal visible animationType="slide" onRequestClose={onClose}>
+    <Modal visible animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: '#000' }}>
         <CameraView
-          style={{ flex: 1 }}
+          style={StyleSheet.absoluteFill}
           facing="back"
           barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'code128', 'code39', 'qr', 'upc_a', 'upc_e'] }}
           onBarcodeScanned={({ data }) => {
@@ -223,9 +229,34 @@ function BarcodeScannerModal({ visible, onScanned, onClose }: {
             onClose();
           }}
         />
-        {/* Viseur */}
-        <View style={sc.overlay}>
-          <View style={sc.frame} />
+        {/* Fond semi-transparent autour du viseur */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          {/* bande haute */}
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }} />
+          <View style={{ flexDirection: 'row', height: frameH }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }} />
+            <View style={{ width: frameW }} />
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }} />
+          </View>
+          {/* bande basse */}
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }} />
+        </View>
+        {/* Coins du viseur */}
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
+          <View style={{ width: frameW, height: frameH }}>
+            {/* coin haut-gauche */}
+            <View style={{ position: 'absolute', top: 0, left: 0, width: corner, height: cw, backgroundColor: '#fff', borderTopLeftRadius: 3 }} />
+            <View style={{ position: 'absolute', top: 0, left: 0, width: cw, height: corner, backgroundColor: '#fff', borderTopLeftRadius: 3 }} />
+            {/* coin haut-droit */}
+            <View style={{ position: 'absolute', top: 0, right: 0, width: corner, height: cw, backgroundColor: '#fff', borderTopRightRadius: 3 }} />
+            <View style={{ position: 'absolute', top: 0, right: 0, width: cw, height: corner, backgroundColor: '#fff', borderTopRightRadius: 3 }} />
+            {/* coin bas-gauche */}
+            <View style={{ position: 'absolute', bottom: 0, left: 0, width: corner, height: cw, backgroundColor: '#fff', borderBottomLeftRadius: 3 }} />
+            <View style={{ position: 'absolute', bottom: 0, left: 0, width: cw, height: corner, backgroundColor: '#fff', borderBottomLeftRadius: 3 }} />
+            {/* coin bas-droit */}
+            <View style={{ position: 'absolute', bottom: 0, right: 0, width: corner, height: cw, backgroundColor: '#fff', borderBottomRightRadius: 3 }} />
+            <View style={{ position: 'absolute', bottom: 0, right: 0, width: cw, height: corner, backgroundColor: '#fff', borderBottomRightRadius: 3 }} />
+          </View>
           <Text style={sc.hint}>Pointez vers un code-barres</Text>
         </View>
         {/* Bouton fermer */}
@@ -1125,18 +1156,9 @@ const wv = StyleSheet.create({
 
 // Scanner styles
 const sc = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  frame: {
-    width: 240, height: 160, borderRadius: 16,
-    borderWidth: 3, borderColor: '#fff',
-    shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 8,
-  },
   hint: {
-    marginTop: 20, color: '#fff', fontSize: 14, fontWeight: '500',
-    textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
+    marginTop: 20, color: '#fff', fontSize: 15, fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.9)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },
   closeWrap: { position: 'absolute', top: 0, left: 0, right: 0 },
   closeBtn:  {
