@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useAuthStore } from '../../store/authStore';
 import { useCartStore, CartItem } from '../../store/cartStore';
 import { searchProducts, fetchCategories, createSale, fetchPaymentMethods, fetchContacts, PaymentMethod, Contact } from '../../api/pos';
@@ -89,6 +90,76 @@ function PaymentModal({ visible, onClose, onConfirm, submitting, paymentMethods 
             )}
           </TouchableOpacity>
         </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Scanner code-barres ───────────────────────────────────
+function BarcodeScannerModal({ visible, onScanned, onClose }: {
+  visible: boolean;
+  onScanned: (code: string) => void;
+  onClose: () => void;
+}) {
+  const [permission, requestPermission] = useCameraPermissions();
+  const scanned = React.useRef(false);
+
+  useEffect(() => {
+    if (visible) {
+      scanned.current = false;
+      if (!permission?.granted) requestPermission();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  if (!permission?.granted) {
+    return (
+      <Modal visible animationType="slide" onRequestClose={onClose}>
+        <SafeAreaView style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+          <Ionicons name="camera-outline" size={64} color={C.muted} />
+          <Text style={{ fontSize: 16, color: C.text, textAlign: 'center', marginTop: 16, marginBottom: 24 }}>
+            Autorisez l'accès à la caméra pour scanner les codes-barres.
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: C.primary, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 14 }}
+            onPress={requestPermission}
+          >
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Autoriser</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ marginTop: 16 }} onPress={onClose}>
+            <Text style={{ color: C.muted, fontSize: 14 }}>Annuler</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal visible animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
+        <CameraView
+          style={{ flex: 1 }}
+          facing="back"
+          barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'code128', 'code39', 'qr', 'upc_a', 'upc_e'] }}
+          onBarcodeScanned={({ data }) => {
+            if (scanned.current) return;
+            scanned.current = true;
+            onScanned(data);
+            onClose();
+          }}
+        />
+        {/* Viseur */}
+        <View style={sc.overlay}>
+          <View style={sc.frame} />
+          <Text style={sc.hint}>Pointez vers un code-barres</Text>
+        </View>
+        {/* Bouton fermer */}
+        <SafeAreaView style={sc.closeWrap} edges={['top']}>
+          <TouchableOpacity style={sc.closeBtn} onPress={onClose}>
+            <Ionicons name="close" size={26} color="#fff" />
+          </TouchableOpacity>
+        </SafeAreaView>
       </View>
     </Modal>
   );
@@ -375,6 +446,7 @@ export default function PosScreen() {
   const [submitting, setSubmitting]         = useState(false);
   const [editItem, setEditItem]             = useState<CartItem | null>(null);
   const [showContacts, setShowContacts]     = useState(false);
+  const [showScanner, setShowScanner]       = useState(false);
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {});
@@ -491,8 +563,8 @@ export default function PosScreen() {
             onSubmitEditing={load}
             returnKeyType="search"
           />
-          <TouchableOpacity style={s.scanChip}>
-            <Ionicons name="grid-outline" size={14} color={C.secondary} />
+          <TouchableOpacity style={s.scanChip} onPress={() => setShowScanner(true)}>
+            <Ionicons name="barcode-outline" size={18} color={C.secondary} />
           </TouchableOpacity>
         </View>
 
@@ -616,6 +688,15 @@ export default function PosScreen() {
       <ContactPickerModal
         visible={showContacts}
         onClose={() => setShowContacts(false)}
+      />
+
+      <BarcodeScannerModal
+        visible={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScanned={(code) => {
+          setSearch(code);
+          setTimeout(load, 100);
+        }}
       />
     </View>
   );
@@ -872,4 +953,26 @@ const cp = StyleSheet.create({
   rowName:    { fontSize: 14, fontWeight: '600', color: C.text },
   rowSub:     { fontSize: 12, color: C.muted, marginTop: 2 },
   empty:      { textAlign: 'center', color: C.muted, marginTop: 40, fontSize: 14 },
+});
+
+// Scanner styles
+const sc = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  frame: {
+    width: 240, height: 160, borderRadius: 16,
+    borderWidth: 3, borderColor: '#fff',
+    shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 8,
+  },
+  hint: {
+    marginTop: 20, color: '#fff', fontSize: 14, fontWeight: '500',
+    textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
+  },
+  closeWrap: { position: 'absolute', top: 0, left: 0, right: 0 },
+  closeBtn:  {
+    margin: 16, width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center',
+  },
 });
