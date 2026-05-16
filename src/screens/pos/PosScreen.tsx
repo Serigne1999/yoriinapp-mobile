@@ -2,12 +2,12 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ScrollView, FlatList, ActivityIndicator, Alert,
-  Modal, Platform, Image,
+  Modal, Platform, Image, KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
-import { useCartStore } from '../../store/cartStore';
+import { useCartStore, CartItem } from '../../store/cartStore';
 import { searchProducts, fetchCategories, createSale, fetchPaymentMethods, PaymentMethod } from '../../api/pos';
 import { Product, Category } from '../../types';
 import { C, fcfa } from '../../constants';
@@ -94,6 +94,124 @@ function PaymentModal({ visible, onClose, onConfirm, submitting, paymentMethods 
   );
 }
 
+// ── Modal édition ligne panier ────────────────────────────
+function CartEditModal({ item, onClose }: {
+  item: CartItem | null;
+  onClose: () => void;
+}) {
+  const { updateQty, updatePrice, updateDiscount, removeItem } = useCartStore();
+
+  const [price, setPrice]       = useState('');
+  const [discount, setDiscount] = useState('');
+  const [qty, setQty]           = useState('');
+
+  useEffect(() => {
+    if (item) {
+      setPrice(String(item.unit_price));
+      setDiscount(String(item.discount));
+      setQty(String(item.quantity));
+    }
+  }, [item]);
+
+  if (!item) return null;
+
+  const lineTotal = (parseFloat(price) || 0) * (parseFloat(qty) || 0) - (parseFloat(discount) || 0);
+
+  const handleSave = () => {
+    const p = parseFloat(price);
+    const d = parseFloat(discount);
+    const q = parseInt(qty, 10);
+    if (!isNaN(p) && p >= 0) updatePrice(item.variation_id, p);
+    if (!isNaN(d) && d >= 0) updateDiscount(item.variation_id, d);
+    if (!isNaN(q) && q > 0)  updateQty(item.variation_id, q);
+    onClose();
+  };
+
+  return (
+    <Modal visible={!!item} animationType="slide" transparent onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={ce.overlay}>
+        <View style={ce.sheet}>
+          <View style={ce.grabber} />
+          <View style={ce.header}>
+            <View style={{ flex: 1 }}>
+              <Text style={ce.title} numberOfLines={1}>{item.product_name}</Text>
+              {item.variation_name && item.variation_name !== 'Default' && (
+                <Text style={ce.sub}>{item.variation_name}</Text>
+              )}
+            </View>
+            <TouchableOpacity onPress={onClose} style={ce.closeBtn}>
+              <Ionicons name="close" size={22} color={C.text2} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={ce.fields}>
+            {/* Prix unitaire */}
+            <View style={ce.fieldRow}>
+              <Text style={ce.fieldLabel}>Prix unitaire</Text>
+              <TextInput
+                style={ce.fieldInput}
+                value={price}
+                onChangeText={setPrice}
+                keyboardType="numeric"
+                selectTextOnFocus
+              />
+            </View>
+
+            {/* Remise (montant fixe) */}
+            <View style={ce.fieldRow}>
+              <Text style={ce.fieldLabel}>Remise (F)</Text>
+              <TextInput
+                style={ce.fieldInput}
+                value={discount}
+                onChangeText={setDiscount}
+                keyboardType="numeric"
+                selectTextOnFocus
+              />
+            </View>
+
+            {/* Quantité */}
+            <View style={ce.fieldRow}>
+              <Text style={ce.fieldLabel}>Quantité</Text>
+              <View style={ce.qtyRow}>
+                <TouchableOpacity style={ce.qtyBtn} onPress={() => setQty(q => String(Math.max(1, (parseInt(q) || 1) - 1)))}>
+                  <Ionicons name="remove" size={18} color={C.text} />
+                </TouchableOpacity>
+                <TextInput
+                  style={[ce.fieldInput, { flex: 1, textAlign: 'center' }]}
+                  value={qty}
+                  onChangeText={setQty}
+                  keyboardType="numeric"
+                  selectTextOnFocus
+                />
+                <TouchableOpacity style={ce.qtyBtn} onPress={() => setQty(q => String((parseInt(q) || 0) + 1))}>
+                  <Ionicons name="add" size={18} color={C.text} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Sous-total */}
+          <View style={ce.totalRow}>
+            <Text style={ce.totalLabel}>Sous-total</Text>
+            <Text style={ce.totalAmt}>{fmt(Math.max(0, lineTotal))}</Text>
+          </View>
+
+          {/* Actions */}
+          <View style={ce.actions}>
+            <TouchableOpacity style={ce.deleteBtn} onPress={() => { removeItem(item.variation_id); onClose(); }}>
+              <Ionicons name="trash-outline" size={18} color="#EF4444" />
+              <Text style={ce.deleteText}>Supprimer</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={ce.saveBtn} onPress={handleSave}>
+              <Text style={ce.saveText}>Appliquer</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 // ── Carte produit ──────────────────────────────────────────
 function ProductCard({ item, index, inCart, onPress }: {
   item: Product; index: number;
@@ -161,6 +279,7 @@ export default function PosScreen() {
   const [loading, setLoading]               = useState(false);
   const [showPayment, setShowPayment]       = useState(false);
   const [submitting, setSubmitting]         = useState(false);
+  const [editItem, setEditItem]             = useState<CartItem | null>(null);
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {});
@@ -336,10 +455,17 @@ export default function PosScreen() {
           {/* Cart items mini-list */}
           <ScrollView style={s.cartList} showsVerticalScrollIndicator={false}>
             {items.map(item => (
-              <View key={item.variation_id} style={s.cartRow}>
+              <TouchableOpacity
+                key={item.variation_id}
+                style={s.cartRow}
+                onPress={() => setEditItem(item)}
+                activeOpacity={0.7}
+              >
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={s.cartItemName} numberOfLines={1}>{item.product_name}</Text>
-                  <Text style={s.cartItemSub}>{fmt(item.unit_price)} × {item.quantity}</Text>
+                  <Text style={s.cartItemSub}>
+                    {fmt(item.unit_price)}{item.discount > 0 ? ` - ${fmt(item.discount)}` : ''} × {item.quantity}
+                  </Text>
                 </View>
                 <View style={s.qtyWrap}>
                   <TouchableOpacity style={s.qtyBtn} onPress={() => handleDec(item.variation_id)}>
@@ -353,8 +479,8 @@ export default function PosScreen() {
                     <Ionicons name="add" size={14} color={C.text2} />
                   </TouchableOpacity>
                 </View>
-                <Text style={s.cartLineTotal}>{fmt(item.unit_price * item.quantity)}</Text>
-              </View>
+                <Text style={s.cartLineTotal}>{fmt((item.unit_price - item.discount) * item.quantity)}</Text>
+              </TouchableOpacity>
             ))}
           </ScrollView>
 
@@ -382,6 +508,11 @@ export default function PosScreen() {
         onConfirm={handleConfirmPayment}
         submitting={submitting}
         paymentMethods={paymentMethods}
+      />
+
+      <CartEditModal
+        item={editItem}
+        onClose={() => setEditItem(null)}
       />
     </View>
   );
@@ -549,4 +680,58 @@ const pm = StyleSheet.create({
     shadowOpacity: 0.35, shadowRadius: 18, elevation: 8,
   },
   confirmText: { fontSize: 17, fontWeight: '700', color: '#fff' },
+});
+
+// CartEditModal styles
+const ce = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+  },
+  grabber: {
+    width: 36, height: 4, borderRadius: 2, backgroundColor: C.border,
+    alignSelf: 'center', marginTop: 10, marginBottom: 4,
+  },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border, marginBottom: 16,
+  },
+  title:    { fontSize: 16, fontWeight: '700', color: C.text },
+  sub:      { fontSize: 12, color: C.muted, marginTop: 2 },
+  closeBtn: { padding: 4 },
+  fields:   { gap: 12, marginBottom: 16 },
+  fieldRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  fieldLabel: { width: 110, fontSize: 13, color: C.text2, fontWeight: '500' },
+  fieldInput: {
+    flex: 1, height: 44, borderRadius: 10, borderWidth: 1.5, borderColor: C.border,
+    paddingHorizontal: 12, fontSize: 16, fontWeight: '600', color: C.text,
+    backgroundColor: C.bg,
+  },
+  qtyRow:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  qtyBtn:  {
+    width: 36, height: 36, borderRadius: 10, borderWidth: 1.5, borderColor: C.border,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: C.bg,
+  },
+  totalRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.border, marginBottom: 16,
+  },
+  totalLabel: { fontSize: 14, color: C.text2, fontWeight: '500' },
+  totalAmt:   { fontSize: 20, fontWeight: '800', color: C.text, letterSpacing: -0.5 },
+  actions: { flexDirection: 'row', gap: 12 },
+  deleteBtn: {
+    height: 50, paddingHorizontal: 18, borderRadius: 14,
+    borderWidth: 1.5, borderColor: '#FEE2E2',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: '#FFF5F5',
+  },
+  deleteText: { fontSize: 14, fontWeight: '600', color: '#EF4444' },
+  saveBtn: {
+    flex: 1, height: 50, borderRadius: 14, backgroundColor: C.primary,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 10, elevation: 6,
+  },
+  saveText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });
