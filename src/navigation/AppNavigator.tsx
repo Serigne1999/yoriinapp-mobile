@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { C } from '../constants';
 import { useAuthStore } from '../store/authStore';
+import { getWhatsAppBadge } from '../api/whatsapp';
 import DashboardScreen from '../screens/dashboard/DashboardScreen';
 import WhatsAppScreen  from '../screens/whatsapp/WhatsAppScreen';
 import PosScreen       from '../screens/pos/PosScreen';
@@ -29,7 +30,19 @@ function YoriinTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const LEFT  = ['Dashboard', 'Sales'];
   const RIGHT = hasWhatsApp ? ['WhatsApp', 'Settings'] : ['Settings'];
 
-  const badge: Record<string, number | undefined> = {};
+  const [whatsappBadge, setWhatsappBadge] = React.useState<number>(0);
+
+  React.useEffect(() => {
+    if (!hasWhatsApp) return;
+    const load = () => getWhatsAppBadge().then(setWhatsappBadge).catch(() => {});
+    load();
+    const interval = setInterval(load, 60_000);
+    return () => clearInterval(interval);
+  }, [hasWhatsApp]);
+
+  const badge: Record<string, number | undefined> = {
+    WhatsApp: whatsappBadge > 0 ? whatsappBadge : undefined,
+  };
 
   const icons: Record<string, { on: any; off: any; label: string }> = {
     Dashboard: { on: 'home',    off: 'home-outline',    label: 'Accueil'  },

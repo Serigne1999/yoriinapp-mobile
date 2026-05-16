@@ -10,6 +10,13 @@ interface OrdersResponse {
   counts:   Record<string, number>;
 }
 
+export const getWhatsAppBadge = async (location_id?: number): Promise<number> => {
+  const { data } = await client.get<ApiResponse<{ pending: number }>>('/whatsapp/badge', {
+    params: location_id ? { location_id } : undefined,
+  });
+  return data.data.pending ?? 0;
+};
+
 export const getWhatsAppOrders = async (params?: {
   location_id?: number;
   status?: string;
