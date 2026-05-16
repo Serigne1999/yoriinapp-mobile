@@ -7,7 +7,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import QRCode from 'react-native-qrcode-svg';
 import { Linking } from 'react-native';
 import { useAuthStore } from '../../store/authStore';
 import { useCartStore, CartItem } from '../../store/cartStore';
@@ -154,10 +153,13 @@ function WaveQrModal({ visible, amount, waveLink, onConfirm, onClose, submitting
             <Text style={wv.amtValue}>{fmt(amount)}</Text>
           </View>
 
-          {/* QR Code */}
+          {/* QR Code — généré via API image, pas de dépendance native */}
           <View style={wv.qrWrap}>
             <View style={wv.qrBox}>
-              <QRCode value={waveUrl} size={180} />
+              <Image
+                source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(waveUrl)}` }}
+                style={{ width: 180, height: 180 }}
+              />
             </View>
             <Text style={wv.qrHint}>Scannez avec votre app Wave</Text>
           </View>
