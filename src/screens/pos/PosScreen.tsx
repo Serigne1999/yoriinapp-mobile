@@ -113,19 +113,21 @@ function ContactPickerModal({ visible, onClose }: { visible: boolean; onClose: (
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={cp.overlay}>
-        <View style={cp.sheet}>
-          <View style={cp.grabber} />
+    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          {/* Header */}
           <View style={cp.header}>
-            <Text style={cp.title}>Choisir un client</Text>
-            <TouchableOpacity onPress={onClose} style={cp.closeBtn}>
-              <Ionicons name="close" size={22} color={C.text2} />
+            <TouchableOpacity onPress={onClose} style={cp.backBtn}>
+              <Ionicons name="arrow-back" size={22} color={C.text} />
             </TouchableOpacity>
+            <Text style={cp.title}>Choisir un client</Text>
+            <View style={{ width: 36 }} />
           </View>
 
+          {/* Barre de recherche */}
           <View style={cp.searchWrap}>
-            <Ionicons name="search-outline" size={16} color={C.muted} />
+            <Ionicons name="search-outline" size={18} color={C.muted} />
             <TextInput
               style={cp.searchInput}
               placeholder="Nom, téléphone…"
@@ -133,51 +135,55 @@ function ContactPickerModal({ visible, onClose }: { visible: boolean; onClose: (
               value={search}
               onChangeText={setSearch}
               autoFocus
+              returnKeyType="search"
             />
             {search.length > 0 && (
               <TouchableOpacity onPress={() => setSearch('')}>
-                <Ionicons name="close-circle" size={16} color={C.muted} />
+                <Ionicons name="close-circle" size={18} color={C.muted} />
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Walk-in */}
-          <TouchableOpacity style={[cp.row, !contact_id && cp.rowOn]} onPress={() => select(null)}>
-            <View style={cp.avatar}>
-              <Ionicons name="person-outline" size={18} color={C.text2} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={cp.rowName}>Client de passage</Text>
-              <Text style={cp.rowSub}>Vente sans client enregistré</Text>
-            </View>
-            {!contact_id && <Ionicons name="checkmark-circle" size={20} color={C.primary} />}
-          </TouchableOpacity>
-
+          {/* Liste */}
           {loading ? (
-            <ActivityIndicator style={{ marginTop: 20 }} color={C.primary} />
+            <ActivityIndicator style={{ marginTop: 40 }} color={C.primary} />
           ) : (
             <FlatList
-              data={contacts}
-              keyExtractor={c => String(c.id)}
-              style={{ maxHeight: 320 }}
+              data={[null, ...contacts]}
+              keyExtractor={c => c ? String(c.id) : 'walkin'}
               keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => (
-                <TouchableOpacity style={[cp.row, contact_id === item.id && cp.rowOn]} onPress={() => select(item)}>
-                  <View style={cp.avatar}>
-                    <Text style={cp.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={cp.rowName} numberOfLines={1}>{item.name}</Text>
-                    {item.mobile && <Text style={cp.rowSub}>{item.mobile}</Text>}
-                  </View>
-                  {contact_id === item.id && <Ionicons name="checkmark-circle" size={20} color={C.primary} />}
-                </TouchableOpacity>
-              )}
+              contentContainerStyle={{ paddingHorizontal: 16 }}
+              renderItem={({ item }) => {
+                const isWalkin = item === null;
+                const selected = isWalkin ? !contact_id : contact_id === item!.id;
+                return (
+                  <TouchableOpacity
+                    style={[cp.row, selected && cp.rowOn]}
+                    onPress={() => select(isWalkin ? null : item)}
+                  >
+                    <View style={[cp.avatar, isWalkin && cp.avatarGrey]}>
+                      {isWalkin
+                        ? <Ionicons name="person-outline" size={18} color={C.text2} />
+                        : <Text style={cp.avatarText}>{item!.name.charAt(0).toUpperCase()}</Text>
+                      }
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={cp.rowName} numberOfLines={1}>
+                        {isWalkin ? 'Client de passage' : item!.name}
+                      </Text>
+                      <Text style={cp.rowSub}>
+                        {isWalkin ? 'Vente sans client enregistré' : (item!.mobile ?? '')}
+                      </Text>
+                    </View>
+                    {selected && <Ionicons name="checkmark-circle" size={22} color={C.primary} />}
+                  </TouchableOpacity>
+                );
+              }}
               ListEmptyComponent={<Text style={cp.empty}>Aucun client trouvé</Text>}
             />
           )}
-        </View>
-      </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -838,39 +844,32 @@ const ce = StyleSheet.create({
 
 // ContactPickerModal styles
 const cp = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-    maxHeight: '85%',
-  },
-  grabber: {
-    width: 36, height: 4, borderRadius: 2, backgroundColor: C.border,
-    alignSelf: 'center', marginTop: 10, marginBottom: 4,
-  },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 12, marginBottom: 8,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: C.border,
   },
-  title:    { fontSize: 17, fontWeight: '700', color: C.text },
-  closeBtn: { padding: 4 },
+  backBtn: { width: 36, alignItems: 'flex-start' },
+  title:   { flex: 1, fontSize: 17, fontWeight: '700', color: C.text, textAlign: 'center' },
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: C.bg, borderRadius: 12, paddingHorizontal: 12, height: 42,
-    borderWidth: 1, borderColor: C.border, marginBottom: 8,
+    margin: 16, backgroundColor: C.bg, borderRadius: 14,
+    paddingHorizontal: 14, height: 46,
+    borderWidth: 1.5, borderColor: C.border,
   },
-  searchInput: { flex: 1, fontSize: 14, color: C.text },
+  searchInput: { flex: 1, fontSize: 15, color: C.text },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.border,
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border,
   },
-  rowOn: { backgroundColor: '#F0F7FF' },
+  rowOn:      { backgroundColor: '#F0F7FF', marginHorizontal: -16, paddingHorizontal: 16, borderRadius: 0 },
   avatar: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: C.bg,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border,
+    width: 42, height: 42, borderRadius: 21, backgroundColor: C.primary + '18',
+    alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 16, fontWeight: '700', color: C.primary },
+  avatarGrey: { backgroundColor: C.bg, borderWidth: 1, borderColor: C.border },
+  avatarText: { fontSize: 17, fontWeight: '700', color: C.primary },
   rowName:    { fontSize: 14, fontWeight: '600', color: C.text },
-  rowSub:     { fontSize: 12, color: C.muted, marginTop: 1 },
-  empty:      { textAlign: 'center', color: C.muted, marginTop: 20, fontSize: 13 },
+  rowSub:     { fontSize: 12, color: C.muted, marginTop: 2 },
+  empty:      { textAlign: 'center', color: C.muted, marginTop: 40, fontSize: 14 },
 });
