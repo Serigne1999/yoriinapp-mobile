@@ -7,9 +7,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import QRCode from 'react-native-qrcode-svg';
+import { Linking } from 'react-native';
 import { useAuthStore } from '../../store/authStore';
 import { useCartStore, CartItem } from '../../store/cartStore';
-import { searchProducts, fetchCategories, createSale, fetchPaymentMethods, fetchContacts, PaymentMethod, Contact } from '../../api/pos';
+import { searchProducts, fetchCategories, createSale, fetchPaymentMethods, fetchContacts, fetchSettings, PaymentMethod, Contact } from '../../api/pos';
 import { Product, Category } from '../../types';
 import { C, fcfa } from '../../constants';
 
@@ -26,69 +28,159 @@ const FALLBACK_PAYMENT_METHODS: PaymentMethod[] = [
 ];
 
 // ── Modal paiement ─────────────────────────────────────────
-function PaymentModal({ visible, onClose, onConfirm, submitting, paymentMethods }: {
+function PaymentModal({ visible, onClose, onConfirm, submitting, paymentMethods, wavePaymentLink }: {
   visible: boolean; onClose: () => void;
   onConfirm: (method: string) => void; submitting: boolean;
   paymentMethods: PaymentMethod[];
+  wavePaymentLink?: string | null;
 }) {
   const methods = paymentMethods.length > 0 ? paymentMethods : FALLBACK_PAYMENT_METHODS;
-  const [method, setMethod] = useState(methods[0]?.key ?? 'cash');
+  const [method, setMethod]     = useState(methods[0]?.key ?? 'cash');
+  const [showWave, setShowWave] = useState(false);
   const { total } = useCartStore();
 
-  // Réinitialiser la sélection si les méthodes changent
   useEffect(() => {
     if (methods.length > 0 && !methods.find(m => m.key === method)) {
       setMethod(methods[0].key);
     }
   }, [methods]);
 
+  // Détecter si la méthode sélectionnée est Wave (label contient "wave", insensible à la casse)
+  const selectedMethodObj = methods.find(m => m.key === method);
+  const isWave = !!wavePaymentLink && !!selectedMethodObj?.label.toLowerCase().includes('wave');
+
+  const handleConfirm = () => {
+    if (isWave) {
+      setShowWave(true);
+    } else {
+      onConfirm(method);
+    }
+  };
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={pm.overlay}>
-        <View style={pm.sheet}>
-          <View style={pm.grabber} />
-          <View style={pm.header}>
-            <Text style={pm.title}>Paiement</Text>
-            <TouchableOpacity onPress={onClose} disabled={submitting} style={pm.closeBtn}>
-              <Ionicons name="close" size={22} color={C.text2} />
+    <>
+      <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+        <View style={pm.overlay}>
+          <View style={pm.sheet}>
+            <View style={pm.grabber} />
+            <View style={pm.header}>
+              <Text style={pm.title}>Paiement</Text>
+              <TouchableOpacity onPress={onClose} disabled={submitting} style={pm.closeBtn}>
+                <Ionicons name="close" size={22} color={C.text2} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={pm.totalAmt}>{fmt(total())}</Text>
+            <Text style={pm.totalLabel}>Montant à encaisser</Text>
+
+            <Text style={pm.methodLabel}>Mode de paiement</Text>
+            <View style={pm.methodGrid}>
+              {methods.map(m => {
+                const on = method === m.key;
+                const icon = m.key === 'cash' ? 'cash-outline' : m.key === 'card' ? 'card-outline' : 'phone-portrait-outline';
+                return (
+                  <TouchableOpacity
+                    key={m.key}
+                    style={[pm.methodBtn, on && pm.methodBtnOn]}
+                    onPress={() => setMethod(m.key)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name={icon as any} size={22} color={on ? '#fff' : C.secondary} />
+                    <Text style={[pm.methodText, on && { color: '#fff' }]}>{m.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <TouchableOpacity
+              style={[pm.confirmBtn, submitting && { opacity: 0.6 }]}
+              onPress={handleConfirm}
+              disabled={submitting}
+              activeOpacity={0.85}
+            >
+              {submitting ? <ActivityIndicator color="#fff" /> : (
+                <>
+                  <Ionicons name={isWave ? 'qr-code-outline' : 'checkmark'} size={20} color="#fff" />
+                  <Text style={pm.confirmText}>{isWave ? 'Générer QR Wave' : 'Valider la vente'}</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
+        </View>
+      </Modal>
 
-          <Text style={pm.totalAmt}>{fmt(total())}</Text>
-          <Text style={pm.totalLabel}>Montant à encaisser</Text>
+      {showWave && wavePaymentLink && (
+        <WaveQrModal
+          visible={showWave}
+          amount={total()}
+          waveLink={wavePaymentLink}
+          submitting={submitting}
+          onClose={() => setShowWave(false)}
+          onConfirm={() => { setShowWave(false); onConfirm(method); }}
+        />
+      )}
+    </>
+  );
+}
 
-          <Text style={pm.methodLabel}>Mode de paiement</Text>
-          <View style={pm.methodGrid}>
-            {methods.map(m => {
-              const on = method === m.key;
-              const icon = m.key === 'cash' ? 'cash-outline' : m.key === 'card' ? 'card-outline' : 'phone-portrait-outline';
-              return (
-                <TouchableOpacity
-                  key={m.key}
-                  style={[pm.methodBtn, on && pm.methodBtnOn]}
-                  onPress={() => setMethod(m.key)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name={icon as any} size={22} color={on ? '#fff' : C.secondary} />
-                  <Text style={[pm.methodText, on && { color: '#fff' }]}>{m.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
+// ── Modal Wave QR paiement ────────────────────────────────
+function WaveQrModal({ visible, amount, waveLink, onConfirm, onClose, submitting }: {
+  visible: boolean;
+  amount: number;
+  waveLink: string;
+  onConfirm: () => void;
+  onClose: () => void;
+  submitting: boolean;
+}) {
+  // Remplacer le montant dans l'URL Wave : ?amount=XXX
+  const waveUrl = waveLink.replace(/[?&]amount=[^&]*/i, '').replace(/\?$/, '')
+    + (waveLink.includes('?') ? '&' : '?') + `amount=${Math.round(amount)}`;
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={wv.overlay}>
+        <View style={wv.sheet}>
+          <View style={wv.grabber} />
+
+          {/* En-tête Wave */}
+          <View style={wv.header}>
+            <TouchableOpacity onPress={onClose} disabled={submitting} style={wv.closeBtn}>
+              <Ionicons name="close" size={22} color="rgba(255,255,255,0.8)" />
+            </TouchableOpacity>
+            <Text style={wv.subtitle}>Payez avec</Text>
+            <Text style={wv.waveLogo}>wave</Text>
+            <Text style={wv.amtLabel}>Montant à payer</Text>
+            <Text style={wv.amtValue}>{fmt(amount)}</Text>
           </View>
 
-          <TouchableOpacity
-            style={[pm.confirmBtn, submitting && { opacity: 0.6 }]}
-            onPress={() => onConfirm(method)}
-            disabled={submitting}
-            activeOpacity={0.85}
-          >
-            {submitting ? <ActivityIndicator color="#fff" /> : (
-              <>
-                <Ionicons name="checkmark" size={20} color="#fff" />
-                <Text style={pm.confirmText}>Valider la vente</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {/* QR Code */}
+          <View style={wv.qrWrap}>
+            <View style={wv.qrBox}>
+              <QRCode value={waveUrl} size={180} />
+            </View>
+            <Text style={wv.qrHint}>Scannez avec votre app Wave</Text>
+          </View>
+
+          {/* Boutons */}
+          <View style={wv.actions}>
+            <TouchableOpacity
+              style={wv.linkBtn}
+              onPress={() => Linking.openURL(waveUrl)}
+            >
+              <Ionicons name="open-outline" size={16} color="#1AC8F5" />
+              <Text style={wv.linkText}>Ouvrir Wave</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[wv.confirmBtn, submitting && { opacity: 0.6 }]}
+              onPress={onConfirm}
+              disabled={submitting}
+            >
+              {submitting
+                ? <ActivityIndicator color="#1AC8F5" />
+                : <Text style={wv.confirmText}>✓ Paiement reçu — Valider</Text>
+              }
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -438,7 +530,8 @@ export default function PosScreen() {
 
   const [products, setProducts]             = useState<Product[]>([]);
   const [categories, setCategories]         = useState<Category[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [paymentMethods, setPaymentMethods]   = useState<PaymentMethod[]>([]);
+  const [wavePaymentLink, setWavePaymentLink] = useState<string | null>(null);
   const [search, setSearch]                 = useState('');
   const [categoryId, setCategoryId]         = useState<number | null>(null);
   const [loading, setLoading]               = useState(false);
@@ -456,6 +549,10 @@ export default function PosScreen() {
     if (!currentLocationId) return;
     fetchPaymentMethods(currentLocationId).then(setPaymentMethods).catch(() => {});
   }, [currentLocationId]);
+
+  useEffect(() => {
+    fetchSettings().then(s => setWavePaymentLink(s.wave_payment_link ?? null)).catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     if (!currentLocationId) return;
@@ -682,6 +779,7 @@ export default function PosScreen() {
         onConfirm={handleConfirmPayment}
         submitting={submitting}
         paymentMethods={paymentMethods}
+        wavePaymentLink={wavePaymentLink}
       />
 
       <CartEditModal
@@ -970,6 +1068,42 @@ const cp = StyleSheet.create({
   rowName:    { fontSize: 14, fontWeight: '600', color: C.text },
   rowSub:     { fontSize: 12, color: C.muted, marginTop: 2 },
   empty:      { textAlign: 'center', color: C.muted, marginTop: 40, fontSize: 14 },
+});
+
+// Wave QR modal styles
+const wv = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: '#1AC8F5', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24, overflow: 'hidden',
+  },
+  grabber: {
+    width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.4)',
+    alignSelf: 'center', marginTop: 10, marginBottom: 4,
+  },
+  header: { padding: 16, paddingTop: 8, alignItems: 'center' },
+  closeBtn: { position: 'absolute', top: 8, right: 16, padding: 4 },
+  subtitle:  { color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '500' },
+  waveLogo:  { color: '#fff', fontSize: 34, fontWeight: '900', letterSpacing: -1, lineHeight: 38 },
+  amtLabel:  { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '600', marginTop: 6 },
+  amtValue:  { color: '#fff', fontSize: 28, fontWeight: '800', letterSpacing: 0.3 },
+  qrWrap:    { alignItems: 'center', paddingVertical: 12 },
+  qrBox:     {
+    backgroundColor: '#fff', borderRadius: 16, padding: 12,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 6,
+  },
+  qrHint:    { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 10 },
+  actions:   { paddingHorizontal: 20, gap: 10 },
+  linkBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    height: 44, borderRadius: 12, backgroundColor: '#fff',
+  },
+  linkText:    { color: '#1AC8F5', fontWeight: '700', fontSize: 14 },
+  confirmBtn: {
+    height: 52, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  confirmText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });
 
 // Scanner styles

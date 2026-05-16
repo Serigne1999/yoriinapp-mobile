@@ -48,6 +48,11 @@ export const fetchContacts = async (search: string = ''): Promise<Contact[]> => 
   return data.data.contacts ?? [];
 };
 
+export const fetchSettings = async (): Promise<{ wave_payment_link?: string }> => {
+  const { data } = await client.get<ApiResponse<{ pos: { wave_payment_link?: string } }>>('/settings');
+  return data.data.pos ?? {};
+};
+
 export const fetchPaymentMethods = async (location_id: number): Promise<PaymentMethod[]> => {
   const { data } = await client.get<ApiResponse<{ payment_methods: PaymentMethod[] }>>('/payment-methods', { params: { location_id } });
   return data.data.payment_methods ?? [];
