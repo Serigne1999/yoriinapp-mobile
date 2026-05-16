@@ -1,6 +1,12 @@
 import client from './client';
 import { ApiResponse, Category, Product } from '../types';
 
+export interface PaymentMethod {
+  key:     string;
+  label:   string;
+  enabled: boolean;
+}
+
 interface ProductsResponse {
   products: Product[];
   total:    number;
@@ -26,6 +32,11 @@ export const searchProducts = async (params: {
 }) => {
   const { data } = await client.get<ApiResponse<ProductsResponse>>('/products', { params });
   return data.data;
+};
+
+export const fetchPaymentMethods = async (location_id: number): Promise<PaymentMethod[]> => {
+  const { data } = await client.get<ApiResponse<{ payment_methods: PaymentMethod[] }>>('/payment-methods', { params: { location_id } });
+  return data.data.payment_methods ?? [];
 };
 
 export const createSale = async (payload: {

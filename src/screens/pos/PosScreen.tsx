@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import { useCartStore } from '../../store/cartStore';
-import { searchProducts, fetchCategories, createSale } from '../../api/pos';
+import { searchProducts, fetchCategories, createSale, fetchPaymentMethods, PaymentMethod } from '../../api/pos';
 import { Product, Category } from '../../types';
 import { C, fcfa } from '../../constants';
 
@@ -19,20 +19,27 @@ function fmt(n: number) {
   return Math.round(n).toLocaleString('fr-FR').replace(/\s/g, ' ') + ' F';
 }
 
-const PAYMENT_METHODS = [
-  { key: 'cash',         label: 'Espèces',      icon: 'cash-outline' as const },
-  { key: 'wave',         label: 'Wave',         icon: 'phone-portrait-outline' as const },
-  { key: 'orange_money', label: 'Orange Money', icon: 'phone-portrait-outline' as const },
-  { key: 'card',         label: 'Carte',        icon: 'card-outline' as const },
+const FALLBACK_PAYMENT_METHODS: PaymentMethod[] = [
+  { key: 'cash', label: 'Espèces', enabled: true },
+  { key: 'card', label: 'Carte',   enabled: true },
 ];
 
 // ── Modal paiement ─────────────────────────────────────────
-function PaymentModal({ visible, onClose, onConfirm, submitting }: {
+function PaymentModal({ visible, onClose, onConfirm, submitting, paymentMethods }: {
   visible: boolean; onClose: () => void;
   onConfirm: (method: string) => void; submitting: boolean;
+  paymentMethods: PaymentMethod[];
 }) {
-  const [method, setMethod] = useState('cash');
+  const methods = paymentMethods.length > 0 ? paymentMethods : FALLBACK_PAYMENT_METHODS;
+  const [method, setMethod] = useState(methods[0]?.key ?? 'cash');
   const { total } = useCartStore();
+
+  // Réinitialiser la sélection si les méthodes changent
+  useEffect(() => {
+    if (methods.length > 0 && !methods.find(m => m.key === method)) {
+      setMethod(methods[0].key);
+    }
+  }, [methods]);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -51,8 +58,9 @@ function PaymentModal({ visible, onClose, onConfirm, submitting }: {
 
           <Text style={pm.methodLabel}>Mode de paiement</Text>
           <View style={pm.methodGrid}>
-            {PAYMENT_METHODS.map(m => {
+            {methods.map(m => {
               const on = method === m.key;
+              const icon = m.key === 'cash' ? 'cash-outline' : m.key === 'card' ? 'card-outline' : 'phone-portrait-outline';
               return (
                 <TouchableOpacity
                   key={m.key}
@@ -60,7 +68,7 @@ function PaymentModal({ visible, onClose, onConfirm, submitting }: {
                   onPress={() => setMethod(m.key)}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name={m.icon} size={22} color={on ? '#fff' : C.secondary} />
+                  <Ionicons name={icon as any} size={22} color={on ? '#fff' : C.secondary} />
                   <Text style={[pm.methodText, on && { color: '#fff' }]}>{m.label}</Text>
                 </TouchableOpacity>
               );
@@ -145,17 +153,23 @@ export default function PosScreen() {
   const { currentLocationId, user } = useAuthStore();
   const { addItem, items, updateQty, count, total, clear } = useCartStore();
 
-  const [products, setProducts]       = useState<Product[]>([]);
-  const [categories, setCategories]   = useState<Category[]>([]);
-  const [search, setSearch]           = useState('');
-  const [categoryId, setCategoryId]   = useState<number | null>(null);
-  const [loading, setLoading]         = useState(false);
-  const [showPayment, setShowPayment] = useState(false);
-  const [submitting, setSubmitting]   = useState(false);
+  const [products, setProducts]             = useState<Product[]>([]);
+  const [categories, setCategories]         = useState<Category[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [search, setSearch]                 = useState('');
+  const [categoryId, setCategoryId]         = useState<number | null>(null);
+  const [loading, setLoading]               = useState(false);
+  const [showPayment, setShowPayment]       = useState(false);
+  const [submitting, setSubmitting]         = useState(false);
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!currentLocationId) return;
+    fetchPaymentMethods(currentLocationId).then(setPaymentMethods).catch(() => {});
+  }, [currentLocationId]);
 
   const load = useCallback(async () => {
     if (!currentLocationId) return;
@@ -367,6 +381,7 @@ export default function PosScreen() {
         onClose={() => setShowPayment(false)}
         onConfirm={handleConfirmPayment}
         submitting={submitting}
+        paymentMethods={paymentMethods}
       />
     </View>
   );
