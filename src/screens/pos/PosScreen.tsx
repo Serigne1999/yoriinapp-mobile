@@ -697,9 +697,22 @@ export default function PosScreen() {
       <BarcodeScannerModal
         visible={showScanner}
         onClose={() => setShowScanner(false)}
-        onScanned={(code) => {
-          setSearch(code);
-          setTimeout(load, 100);
+        onScanned={async (code) => {
+          try {
+            const res = await searchProducts({ location_id: currentLocationId!, search: code, page: 1 });
+            if (res.products.length === 1) {
+              // Produit unique trouvé → ajout direct au panier
+              handleAdd(res.products[0]);
+            } else if (res.products.length > 1) {
+              // Plusieurs résultats → afficher dans la recherche
+              setSearch(code);
+              setProducts(res.products);
+            } else {
+              Alert.alert('Produit introuvable', `Aucun produit trouvé pour le code : ${code}`);
+            }
+          } catch {
+            Alert.alert('Erreur', 'Impossible de rechercher ce produit.');
+          }
         }}
       />
     </View>
