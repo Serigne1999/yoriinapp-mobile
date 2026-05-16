@@ -50,6 +50,7 @@ function PaymentModal({ visible, onClose, onConfirm, submitting, paymentMethods,
   const isWave = !!wavePaymentLink && !!selectedMethodObj?.label.toLowerCase().includes('wave');
 
   const handleConfirm = () => {
+    console.log('[WAVE] method:', method, 'label:', selectedMethodObj?.label, 'isWave:', isWave, 'link:', wavePaymentLink);
     if (isWave) {
       setShowWave(true);
     } else {
@@ -551,7 +552,12 @@ export default function PosScreen() {
   }, [currentLocationId]);
 
   useEffect(() => {
-    fetchSettings().then(s => setWavePaymentLink(s.wave_payment_link ?? null)).catch(() => {});
+    fetchSettings()
+      .then(s => {
+        console.log('[WAVE] wave_payment_link:', s.wave_payment_link ?? 'null');
+        setWavePaymentLink(s.wave_payment_link ?? null);
+      })
+      .catch(e => console.warn('[WAVE] fetchSettings error:', e?.message));
   }, []);
 
   const load = useCallback(async () => {
