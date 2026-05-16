@@ -563,8 +563,12 @@ export default function PosScreen() {
             onSubmitEditing={load}
             returnKeyType="search"
           />
-          <TouchableOpacity style={s.scanChip} onPress={() => setShowScanner(true)}>
-            <Ionicons name="barcode-outline" size={18} color={C.secondary} />
+          <TouchableOpacity
+            style={s.scanChip}
+            onPress={() => setShowScanner(true)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="barcode-outline" size={20} color={C.secondary} />
           </TouchableOpacity>
         </View>
 
@@ -729,7 +733,7 @@ const s = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 14, color: C.text },
   scanChip: {
-    width: 26, height: 26, borderRadius: 7, backgroundColor: C.primarySoft,
+    width: 38, height: 38, borderRadius: 10, backgroundColor: C.primarySoft,
     alignItems: 'center', justifyContent: 'center',
   },
 
