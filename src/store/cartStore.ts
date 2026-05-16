@@ -12,13 +12,14 @@ export interface CartItem {
 interface CartStore {
   items: CartItem[];
   contact_id: number | null;
+  contact_name: string | null;
   note: string;
   addItem: (item: CartItem) => void;
   removeItem: (variation_id: number) => void;
   updateQty: (variation_id: number, qty: number) => void;
   updatePrice: (variation_id: number, price: number) => void;
   updateDiscount: (variation_id: number, discount: number) => void;
-  setContact: (id: number | null) => void;
+  setContact: (id: number | null, name?: string | null) => void;
   setNote: (note: string) => void;
   clear: () => void;
   total: () => number;
@@ -26,9 +27,10 @@ interface CartStore {
 }
 
 export const useCartStore = create<CartStore>((set, get) => ({
-  items:      [],
-  contact_id: null,
-  note:       '',
+  items:        [],
+  contact_id:   null,
+  contact_name: null,
+  note:         '',
 
   addItem: (item) => set(state => {
     const existing = state.items.find(i => i.variation_id === item.variation_id);
@@ -62,9 +64,9 @@ export const useCartStore = create<CartStore>((set, get) => ({
     items: state.items.map(i => i.variation_id === variation_id ? { ...i, discount } : i),
   })),
 
-  setContact: (id) => set({ contact_id: id }),
+  setContact: (id, name = null) => set({ contact_id: id, contact_name: name }),
   setNote:    (note) => set({ note }),
-  clear:      () => set({ items: [], contact_id: null, note: '' }),
+  clear:      () => set({ items: [], contact_id: null, contact_name: null, note: '' }),
 
   total: () => get().items.reduce(
     (sum, i) => sum + (i.unit_price - i.discount) * i.quantity, 0

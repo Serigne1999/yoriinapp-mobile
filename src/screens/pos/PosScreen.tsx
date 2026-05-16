@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
 import { useCartStore, CartItem } from '../../store/cartStore';
-import { searchProducts, fetchCategories, createSale, fetchPaymentMethods, PaymentMethod } from '../../api/pos';
+import { searchProducts, fetchCategories, createSale, fetchPaymentMethods, fetchContacts, PaymentMethod, Contact } from '../../api/pos';
 import { Product, Category } from '../../types';
 import { C, fcfa } from '../../constants';
 
@@ -88,6 +88,94 @@ function PaymentModal({ visible, onClose, onConfirm, submitting, paymentMethods 
               </>
             )}
           </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Modal sélection client ────────────────────────────────
+function ContactPickerModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { setContact, contact_id } = useCartStore();
+  const [search, setSearch]       = useState('');
+  const [contacts, setContacts]   = useState<Contact[]>([]);
+  const [loading, setLoading]     = useState(false);
+
+  useEffect(() => {
+    if (!visible) return;
+    setLoading(true);
+    fetchContacts(search).then(setContacts).catch(() => {}).finally(() => setLoading(false));
+  }, [visible, search]);
+
+  const select = (c: Contact | null) => {
+    setContact(c?.id ?? null, c?.name ?? null);
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={cp.overlay}>
+        <View style={cp.sheet}>
+          <View style={cp.grabber} />
+          <View style={cp.header}>
+            <Text style={cp.title}>Choisir un client</Text>
+            <TouchableOpacity onPress={onClose} style={cp.closeBtn}>
+              <Ionicons name="close" size={22} color={C.text2} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={cp.searchWrap}>
+            <Ionicons name="search-outline" size={16} color={C.muted} />
+            <TextInput
+              style={cp.searchInput}
+              placeholder="Nom, téléphone…"
+              placeholderTextColor={C.muted}
+              value={search}
+              onChangeText={setSearch}
+              autoFocus
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <Ionicons name="close-circle" size={16} color={C.muted} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Walk-in */}
+          <TouchableOpacity style={[cp.row, !contact_id && cp.rowOn]} onPress={() => select(null)}>
+            <View style={cp.avatar}>
+              <Ionicons name="person-outline" size={18} color={C.text2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={cp.rowName}>Client de passage</Text>
+              <Text style={cp.rowSub}>Vente sans client enregistré</Text>
+            </View>
+            {!contact_id && <Ionicons name="checkmark-circle" size={20} color={C.primary} />}
+          </TouchableOpacity>
+
+          {loading ? (
+            <ActivityIndicator style={{ marginTop: 20 }} color={C.primary} />
+          ) : (
+            <FlatList
+              data={contacts}
+              keyExtractor={c => String(c.id)}
+              style={{ maxHeight: 320 }}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
+                <TouchableOpacity style={[cp.row, contact_id === item.id && cp.rowOn]} onPress={() => select(item)}>
+                  <View style={cp.avatar}>
+                    <Text style={cp.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={cp.rowName} numberOfLines={1}>{item.name}</Text>
+                    {item.mobile && <Text style={cp.rowSub}>{item.mobile}</Text>}
+                  </View>
+                  {contact_id === item.id && <Ionicons name="checkmark-circle" size={20} color={C.primary} />}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={<Text style={cp.empty}>Aucun client trouvé</Text>}
+            />
+          )}
         </View>
       </View>
     </Modal>
@@ -269,7 +357,7 @@ function ProductCard({ item, index, inCart, onPress }: {
 // ── Écran POS ──────────────────────────────────────────────
 export default function PosScreen() {
   const { currentLocationId, user } = useAuthStore();
-  const { addItem, items, updateQty, count, total, clear } = useCartStore();
+  const { addItem, items, updateQty, count, total, clear, contact_name } = useCartStore();
 
   const [products, setProducts]             = useState<Product[]>([]);
   const [categories, setCategories]         = useState<Category[]>([]);
@@ -280,6 +368,7 @@ export default function PosScreen() {
   const [showPayment, setShowPayment]       = useState(false);
   const [submitting, setSubmitting]         = useState(false);
   const [editItem, setEditItem]             = useState<CartItem | null>(null);
+  const [showContacts, setShowContacts]     = useState(false);
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {});
@@ -452,6 +541,15 @@ export default function PosScreen() {
         <View style={s.cartDrawer}>
           <View style={s.grabber} />
 
+          {/* Sélection client */}
+          <TouchableOpacity style={s.clientRow} onPress={() => setShowContacts(true)} activeOpacity={0.7}>
+            <Ionicons name="person-outline" size={16} color={contact_name ? C.primary : C.muted} />
+            <Text style={[s.clientText, contact_name && s.clientTextOn]} numberOfLines={1}>
+              {contact_name ?? 'Client de passage'}
+            </Text>
+            <Ionicons name="chevron-forward" size={14} color={C.muted} />
+          </TouchableOpacity>
+
           {/* Cart items mini-list */}
           <ScrollView style={s.cartList} showsVerticalScrollIndicator={false}>
             {items.map(item => (
@@ -513,6 +611,11 @@ export default function PosScreen() {
       <CartEditModal
         item={editItem}
         onClose={() => setEditItem(null)}
+      />
+
+      <ContactPickerModal
+        visible={showContacts}
+        onClose={() => setShowContacts(false)}
       />
     </View>
   );
@@ -643,6 +746,14 @@ const s = StyleSheet.create({
     shadowOpacity: 0.35, shadowRadius: 14, elevation: 8,
   },
   encaisserText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+
+  clientRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 8, paddingHorizontal: 4,
+    borderBottomWidth: 1, borderBottomColor: C.border, marginBottom: 6,
+  },
+  clientText:    { flex: 1, fontSize: 13, color: C.muted, fontWeight: '500' },
+  clientTextOn:  { color: C.primary, fontWeight: '600' },
 });
 
 // Payment modal styles
@@ -734,4 +845,43 @@ const ce = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 10, elevation: 6,
   },
   saveText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+});
+
+// ContactPickerModal styles
+const cp = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    maxHeight: '85%',
+  },
+  grabber: {
+    width: 36, height: 4, borderRadius: 2, backgroundColor: C.border,
+    alignSelf: 'center', marginTop: 10, marginBottom: 4,
+  },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 12, marginBottom: 8,
+  },
+  title:    { fontSize: 17, fontWeight: '700', color: C.text },
+  closeBtn: { padding: 4 },
+  searchWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.bg, borderRadius: 12, paddingHorizontal: 12, height: 42,
+    borderWidth: 1, borderColor: C.border, marginBottom: 8,
+  },
+  searchInput: { flex: 1, fontSize: 14, color: C.text },
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.border,
+  },
+  rowOn: { backgroundColor: '#F0F7FF' },
+  avatar: {
+    width: 38, height: 38, borderRadius: 19, backgroundColor: C.bg,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border,
+  },
+  avatarText: { fontSize: 16, fontWeight: '700', color: C.primary },
+  rowName:    { fontSize: 14, fontWeight: '600', color: C.text },
+  rowSub:     { fontSize: 12, color: C.muted, marginTop: 1 },
+  empty:      { textAlign: 'center', color: C.muted, marginTop: 20, fontSize: 13 },
 });

@@ -34,6 +34,20 @@ export const searchProducts = async (params: {
   return data.data;
 };
 
+export interface Contact {
+  id:     number;
+  name:   string;
+  mobile: string | null;
+  ref:    string | null;
+}
+
+export const fetchContacts = async (search: string = ''): Promise<Contact[]> => {
+  const { data } = await client.get<ApiResponse<{ contacts: Contact[] }>>('/contacts', {
+    params: { type: 'customer', search, per_page: 50 },
+  });
+  return data.data.contacts ?? [];
+};
+
 export const fetchPaymentMethods = async (location_id: number): Promise<PaymentMethod[]> => {
   const { data } = await client.get<ApiResponse<{ payment_methods: PaymentMethod[] }>>('/payment-methods', { params: { location_id } });
   return data.data.payment_methods ?? [];
