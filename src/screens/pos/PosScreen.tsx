@@ -86,6 +86,55 @@ function PaymentModal({ visible, onClose, onConfirm, submitting }: {
   );
 }
 
+// ── Carte produit ──────────────────────────────────────────
+function ProductCard({ item, index, inCart, onPress }: {
+  item: Product; index: number;
+  inCart: { quantity: number } | undefined;
+  onPress: () => void;
+}) {
+  const [imgError, setImgError] = React.useState(false);
+  const v          = item.variations[0];
+  const low        = item.enable_stock && v.stock < 10;
+  const color      = PROD_COLORS[index % PROD_COLORS.length];
+  const emoji      = PROD_EMOJIS[index % PROD_EMOJIS.length];
+  const showImage  = !!item.image && !imgError;
+
+  return (
+    <TouchableOpacity
+      style={[s.prodCard, inCart && s.prodCardIn]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <View style={[s.prodImg, { backgroundColor: showImage ? '#F3F4F6' : color }]}>
+        {showImage ? (
+          <Image
+            source={{ uri: item.image! }}
+            style={StyleSheet.absoluteFillObject}
+            resizeMode="cover"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <Text style={s.prodEmoji}>{emoji}</Text>
+        )}
+        {low && (
+          <View style={s.lowBadge}>
+            <Text style={s.lowText}>STOCK {v.stock}</Text>
+          </View>
+        )}
+        {inCart && (
+          <View style={[s.cartBadge, { top: 6, right: 6 }]}>
+            <Text style={s.cartBadgeText}>{inCart.quantity}</Text>
+          </View>
+        )}
+      </View>
+      <View style={s.prodInfo}>
+        <Text style={s.prodName} numberOfLines={2}>{item.name}</Text>
+        <Text style={s.prodPrice}>{fmt(v.price)}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 // ── Écran POS ──────────────────────────────────────────────
 export default function PosScreen() {
   const { currentLocationId, user } = useAuthStore();
@@ -249,48 +298,14 @@ export default function PosScreen() {
           ListEmptyComponent={
             <Text style={s.empty}>Aucun produit trouvé</Text>
           }
-          renderItem={({ item, index }) => {
-            const v = item.variations[0];
-            const inCart = items.find(i => i.variation_id === v.id);
-            const low = item.enable_stock && v.stock < 10;
-            const color = PROD_COLORS[index % PROD_COLORS.length];
-            const emoji = PROD_EMOJIS[index % PROD_EMOJIS.length];
-            return (
-              <TouchableOpacity
-                style={[s.prodCard, inCart && s.prodCardIn]}
-                onPress={() => handleAdd(item)}
-                activeOpacity={0.85}
-              >
-                <View style={{ backgroundColor: item.image ? '#F3F4F6' : color }}>
-                  {item.image ? (
-                    <Image
-                      source={{ uri: item.image }}
-                      style={{ width: '100%', aspectRatio: 1 }}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={s.prodImg}>
-                      <Text style={s.prodEmoji}>{emoji}</Text>
-                    </View>
-                  )}
-                  {low && (
-                    <View style={s.lowBadge}>
-                      <Text style={s.lowText}>STOCK {v.stock}</Text>
-                    </View>
-                  )}
-                  {inCart && (
-                    <View style={[s.cartBadge, { top: 6, right: 6 }]}>
-                      <Text style={s.cartBadgeText}>{inCart.quantity}</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={s.prodInfo}>
-                  <Text style={s.prodName} numberOfLines={2}>{item.name}</Text>
-                  <Text style={s.prodPrice}>{fmt(v.price)}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          }}
+          renderItem={({ item, index }) => (
+            <ProductCard
+              item={item}
+              index={index}
+              inCart={items.find(i => i.variation_id === item.variations[0].id)}
+              onPress={() => handleAdd(item)}
+            />
+          )}
         />
       )}
 
