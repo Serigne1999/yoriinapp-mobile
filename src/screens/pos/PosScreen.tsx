@@ -582,19 +582,8 @@ export default function PosScreen() {
     if (item) updateQty(variationId, item.quantity - 1);
   };
 
-  const handleConfirmPayment = async (method: string) => {
+  const doCreateSale = async (method: string) => {
     if (!currentLocationId) return;
-
-    // Si Wave et lien configuré → afficher QR avant de valider
-    const payMethods = paymentMethods.length > 0 ? paymentMethods : FALLBACK_PAYMENT_METHODS;
-    const selectedLabel = payMethods.find(m => m.key === method)?.label ?? '';
-    if (wavePaymentLink && selectedLabel.toLowerCase().includes('wave')) {
-      setPendingMethod(method);
-      setShowPayment(false);
-      setShowWaveQr(true);
-      return;
-    }
-
     setSubmitting(true);
     try {
       const cartStore = useCartStore.getState();
@@ -612,6 +601,7 @@ export default function PosScreen() {
       });
       if (res.success) {
         setShowPayment(false);
+        setShowWaveQr(false);
         clear();
         Alert.alert('✅ Vente enregistrée', `Facture ${res.data.invoice_no}\n${fmt(res.data.total)}`);
       } else {
@@ -622,6 +612,22 @@ export default function PosScreen() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleConfirmPayment = async (method: string) => {
+    if (!currentLocationId) return;
+
+    // Si Wave et lien configuré → afficher QR avant de valider
+    const payMethods = paymentMethods.length > 0 ? paymentMethods : FALLBACK_PAYMENT_METHODS;
+    const selectedLabel = payMethods.find(m => m.key === method)?.label ?? '';
+    if (wavePaymentLink && selectedLabel.toLowerCase().includes('wave')) {
+      setPendingMethod(method);
+      setShowPayment(false);
+      setShowWaveQr(true);
+      return;
+    }
+
+    await doCreateSale(method);
   };
 
   const cartCount  = count();
@@ -799,7 +805,7 @@ export default function PosScreen() {
           waveLink={wavePaymentLink}
           submitting={submitting}
           onClose={() => { setShowWaveQr(false); setShowPayment(true); }}
-          onConfirm={() => { setShowWaveQr(false); handleConfirmPayment(pendingMethod); }}
+          onConfirm={() => doCreateSale(pendingMethod)}
         />
       )}
 
