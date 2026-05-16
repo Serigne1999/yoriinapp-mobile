@@ -465,8 +465,11 @@ export default function PosScreen() {
               Caisse · {user?.name?.split(' ')[0] ?? 'Caissier'} · {timeStr}
             </Text>
           </View>
-          <TouchableOpacity style={s.moreBtn}>
-            <Ionicons name="ellipsis-vertical" size={20} color={C.text2} />
+          <TouchableOpacity style={s.clientBtn} onPress={() => setShowContacts(true)} activeOpacity={0.75}>
+            <Ionicons name="person-outline" size={14} color={contact_name ? C.primary : C.text2} />
+            <Text style={[s.clientBtnText, contact_name && { color: C.primary }]} numberOfLines={1}>
+              {contact_name ?? 'Client'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -540,15 +543,6 @@ export default function PosScreen() {
       {cartCount > 0 && (
         <View style={s.cartDrawer}>
           <View style={s.grabber} />
-
-          {/* Sélection client */}
-          <TouchableOpacity style={s.clientRow} onPress={() => setShowContacts(true)} activeOpacity={0.7}>
-            <Ionicons name="person-outline" size={16} color={contact_name ? C.primary : C.muted} />
-            <Text style={[s.clientText, contact_name && s.clientTextOn]} numberOfLines={1}>
-              {contact_name ?? 'Client de passage'}
-            </Text>
-            <Ionicons name="chevron-forward" size={14} color={C.muted} />
-          </TouchableOpacity>
 
           {/* Cart items mini-list */}
           <ScrollView style={s.cartList} showsVerticalScrollIndicator={false}>
@@ -631,11 +625,13 @@ const s = StyleSheet.create({
   },
   headerTitle: { fontSize: 19, fontWeight: '800', color: C.text, letterSpacing: -0.4 },
   headerSub:   { fontSize: 12, color: C.muted, marginTop: 1 },
-  moreBtn: {
-    width: 38, height: 38, borderRadius: 10, backgroundColor: C.bg,
-    borderWidth: 1, borderColor: C.border,
-    alignItems: 'center', justifyContent: 'center',
+  clientBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: C.bg, borderWidth: 1.5, borderColor: C.border,
+    maxWidth: 140,
   },
+  clientBtnText: { fontSize: 13, fontWeight: '600', color: C.text2, flexShrink: 1 },
 
   searchWrap: {
     flexDirection: 'row', alignItems: 'center',
@@ -747,13 +743,6 @@ const s = StyleSheet.create({
   },
   encaisserText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
-  clientRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingVertical: 8, paddingHorizontal: 4,
-    borderBottomWidth: 1, borderBottomColor: C.border, marginBottom: 6,
-  },
-  clientText:    { flex: 1, fontSize: 13, color: C.muted, fontWeight: '500' },
-  clientTextOn:  { color: C.primary, fontWeight: '600' },
 });
 
 // Payment modal styles
