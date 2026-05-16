@@ -108,9 +108,12 @@ function WaveQrModal({ visible, amount, waveLink, onConfirm, onClose, submitting
   onClose: () => void;
   submitting: boolean;
 }) {
-  // Remplacer le montant dans l'URL Wave : ?amount=XXX
-  const waveUrl = waveLink.replace(/[?&]amount=[^&]*/i, '').replace(/\?$/, '')
-    + (waveLink.includes('?') ? '&' : '?') + `amount=${Math.round(amount)}`;
+  // Construire l'URL Wave avec le bon montant
+  const baseUrl = waveLink
+    .replace(/[?&]amount=[^&]*/i, '')  // supprimer ?amount=XXX ou &amount=XXX
+    .replace(/[?&]$/, '');              // supprimer ? ou & résiduel en fin d'URL
+  const sep = baseUrl.includes('?') ? '&' : '?';
+  const waveUrl = `${baseUrl}${sep}amount=${Math.round(amount)}`;
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
