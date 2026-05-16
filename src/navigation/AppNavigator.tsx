@@ -29,9 +29,7 @@ function YoriinTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const LEFT  = ['Dashboard', 'Sales'];
   const RIGHT = hasWhatsApp ? ['WhatsApp', 'Settings'] : ['Settings'];
 
-  const badge: Record<string, number | undefined> = {
-    WhatsApp: 4,
-  };
+  const badge: Record<string, number | undefined> = {};
 
   const icons: Record<string, { on: any; off: any; label: string }> = {
     Dashboard: { on: 'home',    off: 'home-outline',    label: 'Accueil'  },
