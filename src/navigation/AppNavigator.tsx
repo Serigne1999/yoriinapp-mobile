@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { C } from '../constants';
+import { useAuthStore } from '../store/authStore';
 import DashboardScreen from '../screens/dashboard/DashboardScreen';
 import WhatsAppScreen  from '../screens/whatsapp/WhatsAppScreen';
 import PosScreen       from '../screens/pos/PosScreen';
@@ -22,8 +23,11 @@ const Tab = createBottomTabNavigator<AppTabParamList>();
 
 // ── Custom tab bar with centred FAB ──────────────────────────────────────────
 function YoriinTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const business = useAuthStore(s => s.business);
+  const hasWhatsApp = business?.has_whatsapp ?? false;
+
   const LEFT  = ['Dashboard', 'Sales'];
-  const RIGHT = ['WhatsApp', 'Settings'];
+  const RIGHT = hasWhatsApp ? ['WhatsApp', 'Settings'] : ['Settings'];
 
   const badge: Record<string, number | undefined> = {
     WhatsApp: 4,
@@ -91,7 +95,7 @@ function YoriinTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
       </View>
 
       {/* Right tabs */}
-      <View style={tb.side}>
+      <View style={[tb.side, RIGHT.length === 1 && { justifyContent: 'center' }]}>
         {RIGHT.map(renderTab)}
       </View>
     </View>
@@ -99,6 +103,9 @@ function YoriinTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 }
 
 export default function AppNavigator() {
+  const business = useAuthStore(s => s.business);
+  const hasWhatsApp = business?.has_whatsapp ?? false;
+
   return (
     <Tab.Navigator
       tabBar={(props) => <YoriinTabBar {...props} />}
@@ -107,7 +114,9 @@ export default function AppNavigator() {
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Sales"     component={SalesNavigator} />
       <Tab.Screen name="POS"       component={PosScreen} />
-      <Tab.Screen name="WhatsApp"  component={WhatsAppScreen} />
+      {hasWhatsApp && (
+        <Tab.Screen name="WhatsApp" component={WhatsAppScreen} />
+      )}
       <Tab.Screen name="Settings"  component={SettingsScreen} />
     </Tab.Navigator>
   );

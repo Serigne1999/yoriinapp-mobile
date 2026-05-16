@@ -12,6 +12,7 @@ export interface Business {
   currency:            string;
   currency_precision:  number;
   quantity_precision:  number;
+  has_whatsapp:        boolean;
 }
 
 export interface Location {
