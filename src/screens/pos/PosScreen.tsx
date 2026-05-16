@@ -105,16 +105,21 @@ function ProductCard({ item, index, inCart, onPress }: {
       onPress={onPress}
       activeOpacity={0.85}
     >
-      <View style={[s.prodImg, { backgroundColor: showImage ? '#F3F4F6' : color }]}>
+      <View style={[s.prodImgWrap, { backgroundColor: showImage ? '#F3F4F6' : color }]}>
         {showImage ? (
           <Image
             source={{ uri: item.image! }}
-            style={StyleSheet.absoluteFillObject}
+            style={s.prodImgFill}
             resizeMode="cover"
-            onError={() => setImgError(true)}
+            onError={(e) => {
+              console.warn('[IMG_ERROR]', item.image, e.nativeEvent.error);
+              setImgError(true);
+            }}
           />
         ) : (
-          <Text style={s.prodEmoji}>{emoji}</Text>
+          <View style={s.prodImg}>
+            <Text style={s.prodEmoji}>{emoji}</Text>
+          </View>
         )}
         {low && (
           <View style={s.lowBadge}>
@@ -417,8 +422,14 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: C.border, overflow: 'hidden',
   },
   prodCardIn: { borderWidth: 1.5, borderColor: C.primary },
-  prodImg: {
+  prodImgWrap: {
     width: '100%', aspectRatio: 1,
+  },
+  prodImgFill: {
+    flex: 1, width: '100%',
+  },
+  prodImg: {
+    flex: 1, width: '100%',
     alignItems: 'center', justifyContent: 'center',
   },
   prodEmoji: { fontSize: 34 },
